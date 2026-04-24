@@ -24,6 +24,11 @@ jobs:
       - name: Install Dependencies
         run: npm install
 
+      - name: Download Application Binary
+        run: |
+          mkdir -p apps
+          curl -L "https://github.com/quinncess18/taqelah-android-automation/releases/download/v1.0.0/DemoApp-v1.0.0.apk" -o apps/DemoApp-v1.0.0.apk
+
       - name: Start Appium Server
         # This removes the security block so your gesture/reset logic works
         run: npx appium --allow-insecure adb_shell &
