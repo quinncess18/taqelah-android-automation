@@ -12,7 +12,6 @@ class LoginPage extends BasePage {
     super(driver);
     
     // Core Selectors
-    this.title = 'android=new UiSelector().description("DemoApp")';
     this.usernameField = 'android=new UiSelector().className("android.widget.EditText").instance(0)';
     this.passwordField = 'android=new UiSelector().className("android.widget.EditText").instance(1)';
     this.loginButton = 'android=new UiSelector().className("android.widget.Button").description("Login")';
@@ -24,7 +23,6 @@ class LoginPage extends BasePage {
     this.passwordToggle = 'android=new UiSelector().className("android.widget.EditText").instance(1).childSelector(new UiSelector().className("android.widget.Button"))';
     
     // Navigation Selectors
-    this.navMenuBtn = 'android=new UiSelector().description("Open navigation menu")';
     this.logoutBtn = 'android=new UiSelector().className("android.widget.Button").description("Logout")';
   }
 

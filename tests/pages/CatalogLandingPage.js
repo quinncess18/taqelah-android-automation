@@ -2,23 +2,22 @@
 const { BasePage } = require('./BasePage');
 
 /**
- * CatalogPage — Page Object Model for the Home/Catalog screen.
+ * CatalogLandingPage — POM for the marketing-focused Homepage.
  */
-class CatalogPage extends BasePage {
+class CatalogLandingPage extends BasePage {
   /**
    * @param {import('webdriverio').Browser} driver
    */
   constructor(driver) {
     super(driver);
     
-    // Header Selectors
-    this.navMenuBtn = 'android=new UiSelector().description("Open navigation menu")';
-    this.searchTriggerBtn = 'android=new UiSelector().className("android.widget.Button").instance(1)'; // Top right button
-    this.cartBtn = 'android=new UiSelector().description("Cart")'; // Might be the same instance
+    // Header Selectors (Local to Catalog)
+    this.cartBtn = 'android=new UiSelector().className("android.widget.Button").instance(1)'; 
     
-    // Content Selectors
-    this.shopAllBtn = 'android=new UiSelector().className("android.widget.Button").description("Shop All")';
-    this.viewAllCategoriesBtn = 'android=new UiSelector().className("android.widget.Button").description("View All")';
+    // Home Screen Content
+    this.heroBanner = 'android=new UiSelector().descriptionStartsWith("New Collection")';
+    this.shopAllBtn = 'android=new UiSelector().description("Shop All")';
+    this.viewAllCategoriesBtn = 'android=new UiSelector().description("View All")';
     
     // Categories
     this.categoryCasual = 'android=new UiSelector().descriptionStartsWith("Casual")';
@@ -32,11 +31,12 @@ class CatalogPage extends BasePage {
   }
 
   /**
-   * Open the search interface
+   * Navigate to the full product list via 'Shop All'
    */
-  async openSearch() {
-    await (await this.driver.$(this.searchTriggerBtn)).click();
-    await this.driver.pause(1000);
+  async navigateToShopAll() {
+    const el = await this.driver.$(this.shopAllBtn);
+    await el.click();
+    // Verification handled by ProductGridPage
   }
 
   /**
@@ -52,4 +52,4 @@ class CatalogPage extends BasePage {
   }
 }
 
-module.exports = { CatalogPage };
+module.exports = { CatalogLandingPage };
