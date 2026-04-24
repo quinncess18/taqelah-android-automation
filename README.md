@@ -1,23 +1,24 @@
-# Taqelah Android Automation Framework
+# Taqelah Mobile Automation Framework
 
-Enterprise-grade automation framework for the **Taqelah Boutique** Flutter application. This project uses a hybrid architecture combining **Playwright** for test orchestration and **Appium (WebdriverIO)** for mobile interaction.
+Enterprise-grade automation framework for the **Taqelah Boutique** Flutter application. This project uses a hybrid architecture combining **Playwright** for test orchestration and **Appium (WebdriverIO)** for cross-platform mobile interaction.
 
 ## 🚀 Key Features
+- **Dual-Platform Ready:** Refactored architecture supporting both Android and iOS from a single codebase.
 - **Scalable Architecture:** Module-first directory structure designed for large-scale E2E coverage.
-- **Flutter-First Strategy:** Optimized selectors and stability pauses specifically for Flutter's accessibility tree.
+- **Flutter-First Strategy:** Optimized selectors (Ternary Pattern) and stability pauses specifically for Flutter's accessibility tree.
 - **Self-Healing State Management:** Framework-level logic to ensure tests start from a clean state (Login) regardless of previous run outcomes.
 - **CI/CD Ready:** Integrated with Playwright workers and ADB-based global setup for predictable CI runs.
-- **Cross-Device Parallelism:** Configured to run across multiple physical devices or emulators simultaneously.
 
 ## 🏗️ Project Structure
 ```text
-├── apps/                 # Application binaries (.apk)
-├── config/               # Device and Appium server configurations
-├── fixtures/             # Playwright custom fixtures (Appium driver initialization)
+├── apps/                 # Application binaries (.apk, .app)
+├── config/               # Device (Android/iOS) and Appium server configurations
+├── fixtures/             # Playwright custom fixtures (Dynamic Driver switching)
 ├── tests/
-│   ├── pages/           # Page Object Models (POM)
+│   ├── pages/           # Page Object Models (Cross-Platform Selectors)
 │   ├── specs/           # Test suites organized by module
-│   │   └── 01_auth/     # Authentication & Security tests
+│   │   ├── 01_auth/     # Authentication & Security tests
+│   │   └── 02_catalog/  # Home & Product Grid tests
 │   └── utils/           # Shared utilities (Gestures, Logger)
 ├── global-setup.js       # CI/CD state reset logic
 └── playwright.config.js  # Main configuration for the test runner
@@ -27,7 +28,8 @@ Enterprise-grade automation framework for the **Taqelah Boutique** Flutter appli
 - **Test Runner:** [Playwright Test](https://playwright.dev/)
 - **Mobile Driver:** [Appium 2.x](https://appium.io/)
 - **Client Library:** [WebdriverIO 8.x](https://webdriver.io/)
-- **Language:** JavaScript (Node.js)
+- **Android Driver:** `uiautomator2`
+- **iOS Driver:** `XCUITest`
 
 ## 🚦 Getting Started
 
@@ -55,5 +57,4 @@ npm run test:login
 ```
 
 ## 📝 Documentation
-- [SESSION_HISTORY.md](./SESSION_HISTORY.md): Detailed log of research, findings, and decisions.
 - [TEST_PLAN.md](./TEST_PLAN.md): Current test coverage and verification status.

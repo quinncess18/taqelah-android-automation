@@ -11,10 +11,21 @@ class CartPage extends BasePage {
   constructor(driver) {
     super(driver);
     
-    this.cartTitle = 'android=new UiSelector().description("My Cart")';
-    this.emptyCartMsg = 'android=new UiSelector().description("Your cart is empty")';
-    this.continueShoppingBtn = 'android=new UiSelector().className("android.widget.Button").description("Continue Shopping")';
-    this.backBtn = 'android=new UiSelector().description("Back")';
+    this.cartTitle = this.isAndroid 
+      ? 'android=new UiSelector().description("My Cart")' 
+      : '~My Cart';
+    
+    this.emptyCartMsg = this.isAndroid 
+      ? 'android=new UiSelector().description("Your cart is empty")' 
+      : '~empty-cart-message';
+    
+    this.continueShoppingBtn = this.isAndroid 
+      ? 'android=new UiSelector().className("android.widget.Button").description("Continue Shopping")' 
+      : '~Continue Shopping';
+    
+    this.backBtn = this.isAndroid 
+      ? 'android=new UiSelector().description("Back")' 
+      : '~Back';
   }
 
   async waitForPageLoad() {

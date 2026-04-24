@@ -12,18 +12,39 @@ class CatalogLandingPage extends BasePage {
     super(driver);
     
     // Header Selectors (Local to Catalog)
-    this.cartBtn = 'android=new UiSelector().className("android.widget.Button").instance(1)'; 
+    this.cartBtn = this.isAndroid 
+      ? 'android=new UiSelector().className("android.widget.Button").instance(1)' 
+      : '~cart-icon';
     
     // Home Screen Content
-    this.heroBanner = 'android=new UiSelector().descriptionStartsWith("New Collection")';
-    this.shopAllBtn = 'android=new UiSelector().description("Shop All")';
-    this.viewAllCategoriesBtn = 'android=new UiSelector().description("View All")';
+    this.heroBanner = this.isAndroid 
+      ? 'android=new UiSelector().descriptionStartsWith("New Collection")' 
+      : '~hero-banner';
+    
+    this.shopAllBtn = this.isAndroid 
+      ? 'android=new UiSelector().description("Shop All")' 
+      : '~shop-all';
+    
+    this.viewAllCategoriesBtn = this.isAndroid 
+      ? 'android=new UiSelector().description("View All")' 
+      : '~view-all-categories';
     
     // Categories
-    this.categoryCasual = 'android=new UiSelector().descriptionStartsWith("Casual")';
-    this.categoryEvening = 'android=new UiSelector().descriptionStartsWith("Evening")';
-    this.categoryParty = 'android=new UiSelector().descriptionStartsWith("Party")';
-    this.categoryBoho = 'android=new UiSelector().descriptionStartsWith("Boho")';
+    this.categoryCasual = this.isAndroid 
+      ? 'android=new UiSelector().descriptionStartsWith("Casual")' 
+      : '~category-casual';
+    
+    this.categoryEvening = this.isAndroid 
+      ? 'android=new UiSelector().descriptionStartsWith("Evening")' 
+      : '~category-evening';
+    
+    this.categoryParty = this.isAndroid 
+      ? 'android=new UiSelector().descriptionStartsWith("Party")' 
+      : '~category-party';
+    
+    this.categoryBoho = this.isAndroid 
+      ? 'android=new UiSelector().descriptionStartsWith("Boho")' 
+      : '~category-boho';
   }
 
   async waitForPageLoad() {
@@ -36,14 +57,16 @@ class CatalogLandingPage extends BasePage {
   async navigateToShopAll() {
     const el = await this.driver.$(this.shopAllBtn);
     await el.click();
-    // Verification handled by ProductGridPage
   }
 
   /**
    * Select a category by name
    */
   async selectCategory(name) {
-    const selector = `android=new UiSelector().descriptionStartsWith("${name}")`;
+    const selector = this.isAndroid 
+      ? `android=new UiSelector().descriptionStartsWith("${name}")` 
+      : `~category-${name.toLowerCase()}`;
+      
     const el = await this.driver.$(selector);
     if (!(await el.isDisplayed())) {
       await this.swipeUp();

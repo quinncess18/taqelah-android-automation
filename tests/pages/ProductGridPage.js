@@ -12,17 +12,35 @@ class ProductGridPage extends BasePage {
     super(driver);
     
     // Header Selectors
-    this.gridTitle = 'android=new UiSelector().description("All Dresses")';
-    this.sortBtn = 'android=new UiSelector().className("android.widget.Button").instance(2)';
-    this.cartBtn = 'android=new UiSelector().className("android.widget.Button").instance(3)';
+    this.gridTitle = this.isAndroid 
+      ? 'android=new UiSelector().description("All Dresses")' 
+      : '~All Dresses';
+    
+    this.sortBtn = this.isAndroid 
+      ? 'android=new UiSelector().className("android.widget.Button").instance(2)' 
+      : '~sort-button';
+    
+    this.cartBtn = this.isAndroid 
+      ? 'android=new UiSelector().className("android.widget.Button").instance(3)' 
+      : '~cart-icon';
     
     // Search & Metadata
-    this.searchInput = 'android=new UiSelector().className("android.widget.EditText")';
-    this.resultCount = 'android=new UiSelector().descriptionContains("Showing")';
+    this.searchInput = this.isAndroid 
+      ? 'android=new UiSelector().className("android.widget.EditText")' 
+      : '~search-input';
+    
+    this.resultCount = this.isAndroid 
+      ? 'android=new UiSelector().descriptionContains("Showing")' 
+      : '~result-count';
     
     // Grid Elements
-    this.productCard = (name) => `android=new UiSelector().className("android.widget.ImageView").descriptionContains("${name}")`;
-    this.addToCartBtn = 'android=new UiSelector().className("android.widget.Button")';
+    this.productCard = (name) => this.isAndroid 
+      ? `android=new UiSelector().className("android.widget.ImageView").descriptionContains("${name}")` 
+      : `~product-${name.toLowerCase().replace(/ /g, '-')}`;
+    
+    this.addToCartBtn = this.isAndroid 
+      ? 'android=new UiSelector().className("android.widget.Button")' 
+      : '~add-to-cart';
   }
 
   async waitForPageLoad() {
@@ -58,7 +76,10 @@ class ProductGridPage extends BasePage {
    * Get the current count of visible products
    */
   async getVisibleProductCount() {
-    const items = await this.driver.$$('android=new UiSelector().className("android.widget.ImageView").clickable(true)');
+    const selector = this.isAndroid 
+      ? 'android=new UiSelector().className("android.widget.ImageView").clickable(true)' 
+      : '~product-item';
+    const items = await this.driver.$$(selector);
     return items.length;
   }
 
@@ -69,7 +90,7 @@ class ProductGridPage extends BasePage {
   async scrollToBottomAndVerifyMetadata() {
     let isAtEnd = false;
     let scrollCount = 0;
-    const maxScrolls = 20; // Safety cap
+    const maxScrolls = 20;
 
     while (!isAtEnd && scrollCount < maxScrolls) {
       const text = await (await this.driver.$(this.resultCount)).getAttribute('content-desc');
@@ -84,15 +105,11 @@ class ProductGridPage extends BasePage {
 
       if (current >= total) {
         isAtEnd = true;
-        // Perform multiple final deliberate swipes to ensure the absolute bottom is reached
-        // and the last items are fully clear of the screen edge.
-        console.log('[TC-C03] Metadata reached total. Performing final bottom-anchor scrolls...');
         await this.swipeUp();
         await this.swipeUp();
       } else {
         await this.swipeUp();
         scrollCount++;
-        // Settle pause to allow the counter to update in the UI hierarchy
         await this.driver.pause(1000); 
       }
     }

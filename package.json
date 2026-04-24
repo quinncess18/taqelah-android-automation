@@ -1,7 +1,7 @@
 {
-  "name": "taqelah-android-automation",
+  "name": "taqelah-mobile-automation",
   "version": "1.0.0",
-  "description": "Enterprise-grade Flutter automation framework for Taqelah Boutique (Android)",
+  "description": "Enterprise-grade Flutter mobile automation framework for Taqelah Boutique",
   "main": "index.js",
   "scripts": {
     "test": "node scripts/run-parallel.js",

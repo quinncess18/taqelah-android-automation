@@ -11,10 +11,19 @@ class BasePage {
    */
   constructor(driver) {
     this.driver = driver;
+    
+    // Platform Detection
+    this.isAndroid = driver.isAndroid;
+    this.isIOS = driver.isIOS;
 
     // Shared Header Selectors (Global across app)
-    this.title = 'android=new UiSelector().description("DemoApp")';
-    this.navMenuBtn = 'android=new UiSelector().description("Open navigation menu")';
+    this.title = this.isAndroid 
+      ? 'android=new UiSelector().description("DemoApp")' 
+      : '~DemoApp';
+    
+    this.navMenuBtn = this.isAndroid 
+      ? 'android=new UiSelector().description("Open navigation menu")' 
+      : '~Open navigation menu';
   }
 
   /**

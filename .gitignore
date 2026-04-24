@@ -21,6 +21,10 @@ Thumbs.db
 *.log
 appium.log
 
+# Local Documentation
+SESSION_HISTORY.md
+GEMINI.md
+
 # Test Artifacts
 screenshots/
 videos/
