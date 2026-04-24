@@ -1,0 +1,31 @@
+{
+  "name": "taqelah-android-automation",
+  "version": "1.0.0",
+  "description": "Enterprise-grade Flutter automation framework for Taqelah Boutique (Android)",
+  "main": "index.js",
+  "scripts": {
+    "test": "node scripts/run-parallel.js",
+    "test:login": "npx playwright test tests/specs/01_auth/01_functional.spec.js",
+    "test:login:neg": "npx playwright test tests/specs/01_auth/02_negative.spec.js",
+    "test:catalog": "npx playwright test tests/specs/catalog.spec.js",
+    "appium:start": "npx appium --allow-insecure adb_shell"
+  },
+  "dependencies": {
+    "webdriverio": "^8.36.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.44.0",
+    "appium": "^2.5.1",
+    "appium-uiautomator2-driver": "^3.0.0"
+  },
+  "keywords": [
+    "playwright",
+    "appium",
+    "android",
+    "flutter",
+    "automation",
+    "taqelah"
+  ],
+  "author": "",
+  "license": "ISC"
+}

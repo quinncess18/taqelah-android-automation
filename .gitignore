@@ -1,0 +1,28 @@
+node_modules/
+playwright-report/
+test-results/
+blob-report/
+
+# Binaries
+apps/*.apk
+apps/*.aab
+
+# Environment / Secrets
+.env
+.env.*
+
+# OS/Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Logs
+*.log
+appium.log
+
+# Test Artifacts
+screenshots/
+videos/
+traces/
+*.xml
