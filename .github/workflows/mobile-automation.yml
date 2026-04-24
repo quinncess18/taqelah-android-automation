@@ -1,0 +1,45 @@
+name: Mobile Automation (Cloud Emulator)
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-22.04 # CRITICAL: Bypasses the AppArmor bugs in ubuntu-24.04
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Start Appium Server
+        # This removes the security block so your gesture/reset logic works
+        run: npx appium --allow-insecure adb_shell &
+
+      - name: Enable KVM group perms
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run Tests in Cloud Emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 29          # Lower API = less RAM required
+          target: default        # Removes heavy Google bloatware
+          arch: x86_64        
+          profile: pixel_6       
+          disable-animations: true 
+          script: DEVICE_COUNT=1 npm test
