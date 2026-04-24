@@ -80,17 +80,19 @@ const test = base.extend({
       );
 
       // --- SELF-HEALING LOGIC ---
-      // Check if we are already logged in (Home screen visible).
-      // If so, reset the app state to ensure we start at the Login screen.
+      // Only perform a reset if we are in the Auth module and are already logged in.
+      const testDir = workerInfo.project.testDir || '';
+      const isAuthModule = testDir.includes('01_auth');
+      
       const navMenuSelector = 'android=new UiSelector().description("Open navigation menu")';
       const navMenu = await driver.$(navMenuSelector);
-      if (await navMenu.isDisplayed()) {
-        console.log(`[appFixture] ${device.name} is logged in. Resetting to Login screen...`);
+      
+      if (isAuthModule && await navMenu.isDisplayed()) {
+        console.log(`[appFixture] ${device.name} is logged in during Auth suite. Resetting to Login screen...`);
         await driver.execute('mobile: shell', {
           command: 'pm',
           args: ['clear', 'com.taqelah.demo_app']
         });
-        // Restart the app after clearing data
         await driver.execute('mobile: startActivity', {
           intent: 'com.taqelah.demo_app/com.taqelah.demo_app.MainActivity'
         });

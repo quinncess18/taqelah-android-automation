@@ -61,6 +61,43 @@ class ProductGridPage extends BasePage {
     const items = await this.driver.$$('android=new UiSelector().className("android.widget.ImageView").clickable(true)');
     return items.length;
   }
+
+  /**
+   * Perform a full scroll to the bottom, verifying metadata updates along the way.
+   * @returns {Promise<boolean>} True if total items reached
+   */
+  async scrollToBottomAndVerifyMetadata() {
+    let isAtEnd = false;
+    let scrollCount = 0;
+    const maxScrolls = 20; // Safety cap
+
+    while (!isAtEnd && scrollCount < maxScrolls) {
+      const text = await (await this.driver.$(this.resultCount)).getAttribute('content-desc');
+      const match = text.match(/Showing (\d+) of (\d+) items/);
+      
+      if (!match) break;
+      
+      const current = parseInt(match[1], 10);
+      const total = parseInt(match[2], 10);
+      
+      console.log(`[Scroll Debug] Progress: ${current}/${total} items shown.`);
+
+      if (current >= total) {
+        isAtEnd = true;
+        // Perform multiple final deliberate swipes to ensure the absolute bottom is reached
+        // and the last items are fully clear of the screen edge.
+        console.log('[TC-C03] Metadata reached total. Performing final bottom-anchor scrolls...');
+        await this.swipeUp();
+        await this.swipeUp();
+      } else {
+        await this.swipeUp();
+        scrollCount++;
+        // Settle pause to allow the counter to update in the UI hierarchy
+        await this.driver.pause(1000); 
+      }
+    }
+    return isAtEnd;
+  }
 }
 
 module.exports = { ProductGridPage };

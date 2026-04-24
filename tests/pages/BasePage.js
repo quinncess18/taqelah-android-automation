@@ -45,7 +45,7 @@ class BasePage {
         actions: [
           { type: 'pointerMove', duration: 0, x: startX, y: startY },
           { type: 'pointerDown', button: 0 },
-          { type: 'pointerMove', duration: 600, origin: 'viewport', x: endX, y: endY },
+          { type: 'pointerMove', duration: 1200, origin: 'viewport', x: endX, y: endY },
           { type: 'pointerUp', button: 0 },
         ],
       },
@@ -60,8 +60,9 @@ class BasePage {
   async swipeUp() {
     const { width, height } = await this.driver.getWindowRect();
     const centerX = Math.round(width / 2);
-    const startY = Math.round(height * 0.8);
-    const endY = Math.round(height * 0.2);
+    // Smaller, more deliberate scroll (from 60% to 40%)
+    const startY = Math.round(height * 0.6);
+    const endY = Math.round(height * 0.3);
     await this.swipe(centerX, startY, centerX, endY);
   }
 

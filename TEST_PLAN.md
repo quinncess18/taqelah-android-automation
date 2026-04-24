@@ -18,9 +18,9 @@ Defines the test coverage and verification strategy for the Taqelah Android appl
 ## 2. Catalog Module
 | Test ID | Description | Strategy | Status |
 | :--- | :--- | :--- | :--- |
-| **TC-C01** | Product grid loading and scrolling | W3C Gestures | ⏳ Pending |
-| **TC-C02** | Product search functionality | Data Input | ⏳ Pending |
-| **TC-C03** | Category filtering | UI Selection | ⏳ Pending |
+| **TC-C01** | Homepage default state & full scroll | POM Visibility | ✅ Verified |
+| **TC-C02** | "All Dresses" page default state | POM Visibility | ✅ Verified |
+| **TC-C03** | Dynamic metadata updates during scroll | Data-Driven Loop | ⏳ Pending |
 
 ## 3. Shopping Cart
 | Test ID | Description | Strategy | Status |

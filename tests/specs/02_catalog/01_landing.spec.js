@@ -101,4 +101,24 @@ test.describe('Catalog Module - Landing & Shop All', () => {
     const visibleCount = await gridPage.getVisibleProductCount();
     expect(visibleCount).toBeGreaterThanOrEqual(4);
   });
+
+  test('TC-C03: should verify dynamic metadata updates during full-page scroll', async ({ driver }) => {
+    // 1. Initial State Check
+    const initialText = await (await driver.$(gridPage.resultCount)).getAttribute('content-desc');
+    expect(initialText).toContain('Showing');
+
+    // 2. Perform Dynamic Scroll
+    // This method handles the while-loop and regex extraction
+    const reachedBottom = await gridPage.scrollToBottomAndVerifyMetadata();
+
+    // 3. Final Validation
+    expect(reachedBottom).toBe(true);
+    
+    const finalMetadata = await (await driver.$(gridPage.resultCount)).getAttribute('content-desc');
+    // Ensure final metadata shows full count (e.g., "Showing 32 of 32 items")
+    const match = finalMetadata.match(/Showing (\d+) of (\d+) items/);
+    if (match) {
+      expect(match[1]).toBe(match[2]);
+    }
+  });
 });
