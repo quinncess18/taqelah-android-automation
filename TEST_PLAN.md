@@ -19,8 +19,9 @@ Defines the test coverage and verification strategy for the Taqelah Android appl
 | Test ID | Description | Strategy | Status |
 | :--- | :--- | :--- | :--- |
 | **TC-C01** | Homepage default state & full scroll | POM Visibility | ✅ Verified |
-| **TC-C02** | "All Dresses" page default state | POM Visibility | ✅ Verified |
-| **TC-C03** | Dynamic metadata updates during scroll | Data-Driven Loop | ⏳ Pending |
+| **TC-C02** | Cart icon and empty state verification | POM Visibility | ⏳ Pending |
+| **TC-C03** | "All Dresses" page default state | POM Visibility | ✅ Verified |
+| **TC-C04** | Dynamic metadata updates during scroll | Data-Driven Loop | ✅ Verified |
 
 ## 3. Shopping Cart
 | Test ID | Description | Strategy | Status |

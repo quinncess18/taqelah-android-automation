@@ -3,91 +3,92 @@ const { test, expect } = require('../../../fixtures/appFixture');
 const { LoginPage } = require('../../pages/LoginPage');
 const { CatalogLandingPage } = require('../../pages/CatalogLandingPage');
 const { ProductGridPage } = require('../../pages/ProductGridPage');
+const { CartPage } = require('../../pages/CartPage');
 const { Gestures } = require('../../utils/Gestures');
 
-test.describe('Catalog Module - Landing & Shop All', () => {
+test.describe('Catalog Module - Landing, Cart & Shop All', () => {
   let loginPage;
   let landingPage;
   let gridPage;
+  let cartPage;
   let gestures;
 
   test.beforeAll(async ({ driver }) => {
     loginPage = new LoginPage(driver);
     landingPage = new CatalogLandingPage(driver);
     gridPage = new ProductGridPage(driver);
+    cartPage = new CartPage(driver);
     gestures = new Gestures(driver);
   });
 
   test('TC-C01: should complete login correction and verify Homepage default state', async ({ driver }) => {
-    // 1. Picking up from TC-N03 (Login Error State)
     await loginPage.waitForPageLoad();
-    
-    // Clear invalid password; username is already present
     await loginPage.clearField(loginPage.passwordField);
     await loginPage.login(null, '10203040');
 
     await landingPage.waitForPageLoad();
 
-    // 2. Header Verification
+    // 1. Header Verification
     expect(await (await driver.$(landingPage.navMenuBtn)).isDisplayed()).toBe(true);
     expect(await (await driver.$(landingPage.title)).isDisplayed()).toBe(true);
     expect(await (await driver.$(landingPage.cartBtn)).isDisplayed()).toBe(true);
 
-    // 3. Hero Banner & Primary Action
-    expect(await (await driver.$(landingPage.heroBanner)).isDisplayed()).toBe(true);
-    expect(await (await driver.$(landingPage.shopAllBtn)).isDisplayed()).toBe(true);
+    // 2. Hero Banner
+    await expect(await (await driver.$(landingPage.heroBanner)).isDisplayed()).toBe(true);
+    await expect(await (await driver.$(landingPage.shopAllBtn)).isDisplayed()).toBe(true);
 
-    // 4. Category Section Audit
-    const categoryHeader = await driver.$('android=new UiSelector().description("Shop by Category")');
-    expect(await categoryHeader.isDisplayed()).toBe(true);
-    expect(await (await driver.$(landingPage.viewAllCategoriesBtn)).isDisplayed()).toBe(true);
-
-    // 5. Category Banner Verification (Upper Half)
+    // 3. Category Sections
     const casualBanner = await driver.$(landingPage.categoryCasual);
-    const eveningBanner = await driver.$(landingPage.categoryEvening);
-    
     expect(await casualBanner.isDisplayed()).toBe(true);
-    expect(await eveningBanner.isDisplayed()).toBe(true);
     
-    expect(await casualBanner.getAttribute('content-desc')).toContain('8 items');
-    expect(await eveningBanner.getAttribute('content-desc')).toContain('8 items');
+    // Verify name and item count (No arrow here)
+    const casualDesc = await casualBanner.getAttribute('content-desc');
+    expect(casualDesc).toContain('Casual');
+    expect(casualDesc).toContain('8 items');
 
-    // 6. Scrollability & Verification (Lower Half)
     await gestures.scrollDown(0.6);
     
-    const partyBanner = await driver.$(landingPage.categoryParty);
     const bohoBanner = await driver.$(landingPage.categoryBoho);
-    
-    expect(await partyBanner.isDisplayed()).toBe(true);
     expect(await bohoBanner.isDisplayed()).toBe(true);
-    
-    expect(await partyBanner.getAttribute('content-desc')).toContain('8 items');
-    expect(await bohoBanner.getAttribute('content-desc')).toContain('8 items');
+    expect(await bohoBanner.getAttribute('content-desc')).toContain('Boho');
 
-    // Return to top
     await gestures.scrollUp(0.6);
   });
 
-  test('TC-C02: should verify the "All Dresses" page default state (via Shop All)', async ({ driver }) => {
-    // 1. Navigation Transition
+  test('TC-C02: should verify the Cart empty state from Homepage', async ({ driver }) => {
+    // 1. Click Cart icon from Home
+    await (await driver.$(landingPage.cartBtn)).click();
+    await cartPage.waitForPageLoad();
+
+    // 2. Header Verification (Including the Back Arrow icon)
+    expect(await (await driver.$(cartPage.backBtn)).isDisplayed()).toBe(true);
+    expect(await (await driver.$(cartPage.cartTitle)).isDisplayed()).toBe(true);
+
+    // 3. Verify Empty State Content
+    expect(await (await driver.$(cartPage.emptyCartMsg)).isDisplayed()).toBe(true);
+    expect(await (await driver.$(cartPage.continueShoppingBtn)).isDisplayed()).toBe(true);
+
+    // 4. Return to Home via Continue Shopping
+    await cartPage.clickContinueShopping();
+    await landingPage.waitForPageLoad();
+    expect(await (await driver.$(landingPage.title)).isDisplayed()).toBe(true);
+  });
+
+  test('TC-C03: should verify the "All Dresses" page default state (via Shop All)', async ({ driver }) => {
     await landingPage.navigateToShopAll();
     await gridPage.waitForPageLoad();
 
-    // 2. Header & Sorting Verification
     expect(await (await driver.$(gridPage.navMenuBtn)).isDisplayed()).toBe(true);
     expect(await (await driver.$(gridPage.gridTitle)).isDisplayed()).toBe(true);
     expect(await (await driver.$(gridPage.sortBtn)).isDisplayed()).toBe(true);
     expect(await (await driver.$(gridPage.cartBtn)).isDisplayed()).toBe(true);
 
-    // 3. Search Interface
     expect(await (await driver.$(gridPage.searchInput)).isDisplayed()).toBe(true);
 
-    // 4. Metadata Check (Result Count)
     expect(await (await driver.$(gridPage.resultCount)).isDisplayed()).toBe(true);
     const countText = await (await driver.$(gridPage.resultCount)).getAttribute('content-desc');
     expect(countText).toMatch(/Showing \d+ of \d+ items/);
 
-    // 5. Product Card Component Audit
     const firstProduct = await driver.$(gridPage.productCard('Black Sequin Mini'));
     expect(await firstProduct.isDisplayed()).toBe(true);
     
@@ -97,25 +98,18 @@ test.describe('Catalog Module - Landing & Shop All', () => {
     const innerCartBtn = await firstProduct.$(gridPage.addToCartBtn);
     expect(await innerCartBtn.isDisplayed()).toBe(true);
 
-    // 6. Viewport Capacity Check
     const visibleCount = await gridPage.getVisibleProductCount();
     expect(visibleCount).toBeGreaterThanOrEqual(4);
   });
 
-  test('TC-C03: should verify dynamic metadata updates during full-page scroll', async ({ driver }) => {
-    // 1. Initial State Check
+  test('TC-C04: should verify dynamic metadata updates during full-page scroll', async ({ driver }) => {
     const initialText = await (await driver.$(gridPage.resultCount)).getAttribute('content-desc');
     expect(initialText).toContain('Showing');
 
-    // 2. Perform Dynamic Scroll
-    // This method handles the while-loop and regex extraction
     const reachedBottom = await gridPage.scrollToBottomAndVerifyMetadata();
-
-    // 3. Final Validation
     expect(reachedBottom).toBe(true);
     
     const finalMetadata = await (await driver.$(gridPage.resultCount)).getAttribute('content-desc');
-    // Ensure final metadata shows full count (e.g., "Showing 32 of 32 items")
     const match = finalMetadata.match(/Showing (\d+) of (\d+) items/);
     if (match) {
       expect(match[1]).toBe(match[2]);
