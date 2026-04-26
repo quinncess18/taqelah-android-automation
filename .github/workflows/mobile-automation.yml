@@ -30,11 +30,13 @@ jobs:
       - name: Run Android Tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 30
+          api-level: 34
           target: google_apis
           arch: x86_64
           profile: pixel_6
           disable-animations: true
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           script: CI=true DEVICE_COUNT=1 npm test
 
       - name: Upload Report
