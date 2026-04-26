@@ -25,19 +25,23 @@ jobs:
       - name: Install Dependencies
         run: npm install
 
+      - name: Download Application Binary
+        run: |
+          mkdir -p apps
+          curl -L "https://github.com/quinncess18/taqelah-mobile-automation/releases/download/v1.0.0/DemoApp-v1.0.0.apk" -o apps/DemoApp-v1.0.0.apk
+
       - name: Start Appium Server
         run: npx appium --allow-insecure adb_shell &
         env:
           APPIUM_HOME: ${{ github.workspace }}
 
       - name: Enable KVM group perms
-        # THE MISSING STEP: This enables hardware acceleration on GitHub Runners
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - name: Run Tests in Cloud Emulator
+      - name: Run Android Tests
         uses: reactivecircus/android-emulator-runner@v2
         env:
           APPIUM_HOME: ${{ github.workspace }}
@@ -47,7 +51,9 @@ jobs:
           arch: x86_64
           profile: pixel_6
           disable-animations: true
-          script: CI=true DEVICE_COUNT=1 npm test
+          script: |
+            adb install apps/DemoApp-v1.0.0.apk
+            CI=true DEVICE_COUNT=1 npm test
 
       - name: Upload Report
         uses: actions/upload-artifact@v4

@@ -28,7 +28,7 @@ const test = base.extend({
         'appium:systemPort': device.systemPort,
         'appium:chromeDriverPort': device.chromeDriverPort,
         'appium:appPackage': 'com.taqelah.demo_app',
-        'appium:appActivity': '.MainActivity',
+        'appium:appActivity': 'com.taqelah.demo_app.MainActivity',
         'appium:autoGrantPermissions': true,
         ...(APK_PATH ? { 'appium:app': APK_PATH } : {}),
       };
