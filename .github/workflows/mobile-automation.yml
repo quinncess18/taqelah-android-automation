@@ -10,7 +10,8 @@ on:
 jobs:
   android-test:
     name: Android Regression
-    runs-on: ubuntu-22.04 # KVM enabled for high-speed emulators
+    runs-on: ubuntu-22.04 # CRITICAL: Bypasses the AppArmor bugs in ubuntu-24.04
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -25,13 +26,21 @@ jobs:
         run: npm install
 
       - name: Start Appium Server
-        run: npx appium --allow-insecure uiautomator2:adb_shell &
+        # Original working command
+        run: npx appium --allow-insecure adb_shell &
 
-      - name: Run Android Tests
+      - name: Enable KVM group perms
+        # THE MISSING STEP: This enables hardware acceleration on GitHub Runners
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run Tests in Cloud Emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 29
-          target: default
+          api-level: 29          
+          target: default        
           arch: x86_64
           profile: pixel_6
           disable-animations: true
@@ -45,40 +54,8 @@ jobs:
           path: playwright-report/
           retention-days: 30
 
+# iOS Infrastructure (Ready for future use)
 #  ios-test:
-#    name: iOS Regression
-#    runs-on: macos-latest # Required for iOS Simulators
+#    runs-on: macos-latest
 #    steps:
-#      - name: Checkout Repository
-#        uses: actions/checkout@v4
-#
-#      - name: Setup Node.js
-#        uses: actions/setup-node@v4
-#        with:
-#          node-version: '18'
-#          cache: 'npm'
-#
-#      - name: Install Dependencies
-#        run: npm install
-#
-#      - name: Install Appium Drivers
-#        run: |
-#          npx appium driver install xcuitest
-#
-#      - name: Start Appium Server
-#        run: npx appium &
-#
-#      - name: Run iOS Tests
-#        run: |
-#          # Note: Requires iOS .app file to be present in apps/
-#          CI=true DEVICE_COUNT=1 npm test
-#        env:
-#          PLATFORM: ios
-#
-#      - name: Upload Report
-#        uses: actions/upload-artifact@v4
-#        if: always()
-#        with:
-#          name: playwright-report-ios
-#          path: playwright-report/
-#          retention-days: 30
+#      ...
