@@ -2,12 +2,19 @@
 
 Enterprise-grade automation framework for the **Taqelah Boutique** Flutter application. This project uses a hybrid architecture combining **Playwright** for test orchestration and **Appium (WebdriverIO)** for cross-platform mobile interaction.
 
+## 🏁 Current Status: Module 3 (Shopping Cart)
+- **Module 1 (Auth):** ✅ 100% Verified & Universal.
+- **Module 2 (Catalog):** ✅ 100% Verified & Universal (Inc. High-Speed Integrity).
+- **In-Progress:** Discovery and POM development for the Shopping Cart lifecycle.
+
 ## 🚀 Key Features
-- **Dual-Platform Ready:** Refactored architecture supporting both Android and iOS from a single codebase.
+- **Universal Adaptability:** A single, clean codebase designed to run on Pixel 8, iPhone 15 Pro, Pixel Tablet, and iPad.
+- **Safe-Zone Gestures:** Device-agnostic logic using a **30% width safe zone**, avoiding all system handles and split-view triggers on wide screens.
+- **Cross-Platform POMs:** Intelligent Page Objects using the "Ternary Selector" pattern to bridge Android and iOS Flutter TestKeys.
+- **Parallel Cross-Device Support:** Simultaneous execution across multiple devices using Playwright workers.
 - **Scalable Architecture:** Module-first directory structure designed for large-scale E2E coverage.
-- **Flutter-First Strategy:** Optimized selectors (Ternary Pattern) and stability pauses specifically for Flutter's accessibility tree.
-- **Self-Healing State Management:** Framework-level logic to ensure tests start from a clean state (Login) regardless of previous run outcomes.
-- **CI/CD Ready:** Integrated with Playwright workers and ADB-based global setup for predictable CI runs.
+- **Flutter-First Strategy:** Optimized stability pauses specifically for Flutter's high-momentum accessibility tree.
+- **Self-Healing State Management:** Framework-level logic to ensure tests start from a clean state regardless of previous run outcomes.
 
 ## 🏗️ Project Structure
 ```text

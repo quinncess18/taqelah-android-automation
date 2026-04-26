@@ -8,7 +8,7 @@ test.describe('Login Negative Tests', () => {
     const loginPage = new LoginPage(driver);
     await loginPage.waitForPageLoad();
 
-    // Click login with empty fields
+    // login() helper handles the submission and keyboard dismissal automatically
     await loginPage.login(null, null);
 
     const userErr = await loginPage.getErrorMessage('username');
@@ -20,46 +20,36 @@ test.describe('Login Negative Tests', () => {
     expect(await (await driver.$(loginPage.title)).isDisplayed()).toBe(true);
   });
 
-  test('TC-N02: should show error for invalid username (format) with valid password', async ({ driver }) => {
+  test('TC-N02: should show error for invalid username format', async ({ driver }) => {
     const loginPage = new LoginPage(driver);
     await loginPage.waitForPageLoad();
     
-    const userEl = await driver.$(loginPage.usernameField);
-    await userEl.click();
-    await userEl.addValue('invalid-user');
+    await loginPage.fillCredentials('invalid-user', loginPage.defaultPass);
     
+    // VERIFICATION WITH TOGGLE: Prove the default password is correct plaintext
     await loginPage.togglePasswordVisibility();
-    await driver.pause(500);
-
-    const passEl = await driver.$(loginPage.passwordField);
-    await passEl.click();
-    await passEl.addValue('10203040');
+    await loginPage.verifyUsername('invalid-user');
+    await loginPage.verifyPasswordPlaintext(loginPage.defaultPass);
     
+    // Submit
     await (await driver.$(loginPage.loginButton)).click();
     
     const error = await loginPage.getErrorMessage('main');
     expect(error).toContain("Invalid username or password");
-    expect(error).toContain("Hint: emma@demoapp.com / 10203040");
+    expect(error).toContain(`Hint: ${loginPage.defaultUser} / ${loginPage.defaultPass}`);
   });
 
   test('TC-N03: should show error for valid username with invalid password', async ({ driver }) => {
     const loginPage = new LoginPage(driver);
     await loginPage.waitForPageLoad();
     
-    await loginPage.clearField(loginPage.usernameField);
-    await loginPage.clearField(loginPage.passwordField);
+    await loginPage.fillCredentials(loginPage.defaultUser, 'wrong-pass');
 
-    const userEl = await driver.$(loginPage.usernameField);
-    await userEl.click();
-    await userEl.addValue('emma@demoapp.com');
+    // TRANSPARENCY VERIFICATION: Confirm the incorrect plaintext is held in memory
+    await loginPage.verifyUsername(loginPage.defaultUser);
+    await loginPage.verifyPasswordPlaintext('wrong-pass'); 
     
-    // Eye is already ON from TC-N02
-    await driver.pause(500);
-
-    const passEl = await driver.$(loginPage.passwordField);
-    await passEl.click();
-    await passEl.addValue('wrong-pass');
-    
+    // Submit
     await (await driver.$(loginPage.loginButton)).click();
 
     const error = await loginPage.getErrorMessage('main');

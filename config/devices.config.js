@@ -64,6 +64,16 @@ if (!hasEnvDevices) {
       testTimeout: 180000,
       scrollPercent: 0.10,
       settlePause: 800,
+    },
+    {
+      name: 'Pixel Tablet (Local)',
+      platform: 'android',
+      udid: 'emulator-5556',
+      systemPort: 8201,
+      chromeDriverPort: 9516,
+      testTimeout: 180000,
+      scrollPercent: 0.15, // Larger scroll for tablet
+      settlePause: 1200,    // Longer settle for grid density
     }
   );
 }

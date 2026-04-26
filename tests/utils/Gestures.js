@@ -3,6 +3,7 @@
 /**
  * Gestures — Utility class for W3C Touch Actions in Taqelah.
  * Designed for Flutter canvas where native UiScrollable is unavailable.
+ * Universally safe for Phones, Tablets, and iPads.
  */
 class Gestures {
   /**
@@ -13,14 +14,9 @@ class Gestures {
   }
 
   /**
-   * Generic swipe from one coordinate to another.
-   * @param {number} startX 
-   * @param {number} startY 
-   * @param {number} endX 
-   * @param {number} endY 
-   * @param {number} duration 
+   * Generic swipe with improved visibility and momentum.
    */
-  async swipe(startX, startY, endX, endY, duration = 600) {
+  async swipe(startX, startY, endX, endY, duration = 1200) {
     await this.driver.performActions([
       {
         type: 'pointer',
@@ -30,35 +26,49 @@ class Gestures {
           { type: 'pointerMove', duration: 0, x: startX, y: startY },
           { type: 'pointerDown', button: 0 },
           { type: 'pointerMove', duration: duration, origin: 'viewport', x: endX, y: endY },
+          { type: 'pause', duration: 100 }, // Brief hold to ensure momentum
           { type: 'pointerUp', button: 0 },
         ],
       },
     ]);
-    await this.driver.pause(800);
+    await this.driver.pause(1000); // Allow Flutter to render the new viewport
+  }
+
+  /**
+   * Adaptive Scroll to Top (Swipe Down).
+   * Targets the 30% width safe zone to avoid system handles.
+   */
+  async scrollToTop() {
+    const { width, height } = await this.driver.getWindowRect();
+    const safeX = Math.round(width * 0.3);
+    const startY = Math.round(height * 0.2);
+    const endY = Math.round(height * 0.85);
+
+    await this.swipe(safeX, startY, safeX, endY, 2000); // Slow, visible drag
   }
 
   /**
    * Scroll down (Swipe up).
-   * @param {number} percentage How much of the screen to swipe (0.1 to 1.0)
+   * Targets the "Middle-Slice" (20% to 50% height) to avoid keyboard and system handles.
    */
-  async scrollDown(percentage = 0.5) {
+  async scrollDown(percentage = 0.3) {
     const { width, height } = await this.driver.getWindowRect();
-    const centerX = Math.round(width / 2);
-    const startY = Math.round(height * 0.8);
-    const endY = Math.round(height * (0.8 - percentage));
-    await this.swipe(centerX, startY, centerX, endY);
+    const safeX = Math.round(width * 0.3);
+    const startY = Math.round(height * 0.5);
+    const endY = Math.round(height * (0.5 - percentage));
+    await this.swipe(safeX, startY, safeX, endY, 1500);
   }
 
   /**
    * Scroll up (Swipe down).
-   * @param {number} percentage 
+   * Targets the "Middle-Slice" (20% to 50% height).
    */
-  async scrollUp(percentage = 0.5) {
+  async scrollUp(percentage = 0.3) {
     const { width, height } = await this.driver.getWindowRect();
-    const centerX = Math.round(width / 2);
+    const safeX = Math.round(width * 0.3);
     const startY = Math.round(height * 0.2);
     const endY = Math.round(height * (0.2 + percentage));
-    await this.swipe(centerX, startY, centerX, endY);
+    await this.swipe(safeX, startY, safeX, endY, 1500);
   }
 }
 

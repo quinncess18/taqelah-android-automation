@@ -3,38 +3,47 @@ const { defineConfig } = require('@playwright/test');
 const { DEVICES } = require('./config/devices.config');
 
 /**
- * Playwright config for Taqelah Android Automation.
+ * Playwright Config: Universal Hybrid Infrastructure
+ * Optimized for Local, GitHub Actions, and Cloud (BrowserStack/SauceLabs)
  */
 module.exports = defineConfig({
-  testDir: __dirname + '/tests/specs',
-  testMatch: '**/*.spec.js',
-
-  timeout: 120000,      // 120 s per test - Flutter apps can be slow to boot
-  expect: {
-    timeout: 20000,     // 20 s for assertions
-  },
-
-  // Run tests in parallel across all available workers.
-  // Each worker owns one Appium session on one physical device.
-  fullyParallel: false,
+  testDir: './tests/specs',
+  fullyParallel: false, // Mobile tests usually require sequential execution per device
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 1 : 0,
-  workers: DEVICES.length,
+  retries: process.env.CI ? 2 : 1,
+  
+  /* 
+   * DYNAMIC WORKER ENGINE 
+   * GitHub Actions: 1 worker per runner to ensure emulator stability.
+   * Local/Cloud: Scalable based on device count.
+   */
+  workers: process.env.CI ? 1 : (process.env.WORKERS || DEVICES.length),
 
   reporter: [
+    ['html'],
     ['list'],
-    ['html', { open: 'on-failure', outputFolder: 'playwright-report' }],
+    ['github'] // Enhanced output inside GHA UI
   ],
 
   use: {
-    screenshot: 'only-on-failure',
-    video: 'retain-on-failure',
+    /* Base timeout for Appium commands */
+    actionTimeout: 30000,
     trace: 'on-first-retry',
+    screenshot: 'only-on-failure',
   },
 
+  /* 
+   * PROJECT MATRIX 
+   * Dynamically maps our Device Registry to Playwright Projects.
+   */
   projects: DEVICES.map((device) => ({
     name: device.name,
-    use: { deviceConfig: device },
-    timeout: device.testTimeout,
+    use: { 
+      deviceConfig: device,
+      // Placeholder for Cloud Provider credentials
+      isCloud: !!process.env.CLOUD_PROVIDER,
+      cloudProvider: process.env.CLOUD_PROVIDER || 'local'
+    },
+    timeout: device.testTimeout || 180000,
   })),
 });

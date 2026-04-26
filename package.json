@@ -7,16 +7,16 @@
     "test": "node scripts/run-parallel.js",
     "test:login": "npx playwright test tests/specs/01_auth/01_functional.spec.js",
     "test:login:neg": "npx playwright test tests/specs/01_auth/02_negative.spec.js",
-    "test:catalog": "npx playwright test tests/specs/catalog.spec.js",
-    "appium:start": "npx appium --allow-insecure adb_shell"
+    "test:catalog": "npx playwright test tests/specs/02_catalog/01_landing.spec.js",
+    "appium:start": "appium --allow-insecure uiautomator2:adb_shell"
   },
   "dependencies": {
     "webdriverio": "^8.36.1"
   },
   "devDependencies": {
     "@playwright/test": "^1.44.0",
-    "appium": "^2.5.1",
-    "appium-uiautomator2-driver": "^3.0.0"
+    "appium": "^3.3.1",
+    "appium-uiautomator2-driver": "^7.1.2"
   },
   "keywords": [
     "playwright",
