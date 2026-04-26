@@ -25,6 +25,9 @@ jobs:
       - name: Install Dependencies
         run: npm install
 
+      - name: Install Appium Driver
+        run: npx appium driver install uiautomator2
+
       - name: Start Appium Server
         # Original working command
         run: npx appium --allow-insecure adb_shell &
