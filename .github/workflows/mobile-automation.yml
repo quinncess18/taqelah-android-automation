@@ -25,12 +25,10 @@ jobs:
       - name: Install Dependencies
         run: npm install
 
-      - name: Install Appium Driver
-        run: npx appium driver install uiautomator2
-
       - name: Start Appium Server
-        # Original working command
         run: npx appium --allow-insecure adb_shell &
+        env:
+          APPIUM_HOME: ${{ github.workspace }}
 
       - name: Enable KVM group perms
         # THE MISSING STEP: This enables hardware acceleration on GitHub Runners
@@ -41,6 +39,8 @@ jobs:
 
       - name: Run Tests in Cloud Emulator
         uses: reactivecircus/android-emulator-runner@v2
+        env:
+          APPIUM_HOME: ${{ github.workspace }}
         with:
           api-level: 29          
           target: default        
