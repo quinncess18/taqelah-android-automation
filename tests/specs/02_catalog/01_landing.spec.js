@@ -16,6 +16,14 @@ test.describe('Catalog Module - Landing UI Master Check', () => {
     loginPage = new LoginPage(driver);
     landingPage = new CatalogLandingPage(driver);
     gestures = new Gestures(driver);
+
+    // SELF-HEALING: Only login if the app is on the login screen
+    const isLoggedOut = await driver.$(loginPage.title).isDisplayed();
+    if (isLoggedOut) {
+      await loginPage.waitForPageLoad();
+      await loginPage.login(null, loginPage.defaultPass);
+      await landingPage.waitForPageLoad();
+    }
   });
 
   test('TC-C01: should verify Homepage comprehensive UI and adaptive scroll', async ({ driver }) => {

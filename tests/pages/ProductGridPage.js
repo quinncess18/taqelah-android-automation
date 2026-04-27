@@ -231,21 +231,22 @@ class ProductGridPage extends BasePage {
   }
 
   /**
-   * Perform a high-speed 'Flick & Verify' check of the entire catalog.
-   * Optimized for both local speed and CI stability.
+   * Perform a CI-resilient 'Stepped Scroll' check of the entire catalog.
+   * Optimized for high-latency cloud emulators.
    */
   async verifyFullCatalogIntegrity() {
     let collectedItems = new Set();
     let scrollCount = 0;
-    const maxFlicks = 35; 
+    const maxFlicks = 40; // Increased for smaller steps
     const totalGoal = 32;
 
     const { width, height } = await this.driver.getWindowRect();
     const isTablet = width > 1200;
     const safeX = Math.round(width * 0.3);
-    const swipeDepth = isTablet ? 0.7 : 0.45; 
+    const swipeDepth = isTablet ? 0.75 : 0.55; 
 
     while (scrollCount < maxFlicks) {
+      // 1. Capture current visible items
       const items = await this.driver.$$('android=new UiSelector().className("android.widget.ImageView").clickable(true)');
       for (const item of items) {
         const desc = await item.getAttribute('content-desc');
@@ -254,9 +255,11 @@ class ProductGridPage extends BasePage {
         }
       }
 
-      const metaText = await (await this.driver.$(this.resultCount)).getAttribute('content-desc');
-      if (metaText.includes(`${totalGoal} of ${totalGoal}`)) break; 
+      // 2. Metadata Check (Exit Trigger)
+      const resultText = await (await this.driver.$(this.resultCount)).getAttribute('content-desc');
+      if (resultText.includes(`${totalGoal} of ${totalGoal}`)) break; 
 
+      // 3. Controlled Stepped Swipe (Slower progress for CI)
       await this.driver.performActions([
         {
           type: 'pointer',
@@ -265,16 +268,17 @@ class ProductGridPage extends BasePage {
           actions: [
             { type: 'pointerMove', duration: 0, x: safeX, y: Math.round(height * 0.8) },
             { type: 'pointerDown', button: 0 },
-            { type: 'pointerMove', duration: 10, x: safeX, y: Math.round(height * 0.8) - 20 },
-            { type: 'pointerMove', duration: 1000, origin: 'viewport', x: safeX, y: Math.round(height * (0.8 - swipeDepth)) },
+            { type: 'pointerMove', duration: 1200, origin: 'viewport', x: safeX, y: Math.round(height * (0.8 - swipeDepth)) },
             { type: 'pointerUp', button: 0 },
           ],
         },
       ]);
+      
       scrollCount++;
       await this.driver.pause(isTablet ? 1500 : 1200); 
     }
 
+    // 4. MANDATORY POWER-TUG SETTLE: Force the absolute bottom row into visual focus
     const settleCount = isTablet ? 2 : 1;
     for (let i = 0; i < settleCount; i++) {
       await this.driver.performActions([
@@ -285,7 +289,8 @@ class ProductGridPage extends BasePage {
           actions: [
             { type: 'pointerMove', duration: 0, x: safeX, y: Math.round(height * 0.8) },
             { type: 'pointerDown', button: 0 },
-            { type: 'pointerMove', duration: 1000, origin: 'viewport', x: safeX, y: Math.round(height * 0.15) },
+            { type: 'pointerMove', duration: 10, x: safeX, y: Math.round(height * 0.8) - 20 },
+            { type: 'pointerMove', duration: 1000, origin: 'viewport', x: safeX, y: Math.round(height * 0.08) },
             { type: 'pointerUp', button: 0 },
           ],
         },
@@ -293,6 +298,7 @@ class ProductGridPage extends BasePage {
       await this.driver.pause(1200);
     }
 
+    // 5. Final Visual Audit Pass
     const finalItems = await this.driver.$$('android=new UiSelector().className("android.widget.ImageView").clickable(true)');
     for (const item of finalItems) {
       const desc = await item.getAttribute('content-desc');
@@ -300,6 +306,7 @@ class ProductGridPage extends BasePage {
         collectedItems.add(desc.split('\n')[0]);
       }
     }
+    
     return collectedItems.size >= totalGoal;
   }
 }
