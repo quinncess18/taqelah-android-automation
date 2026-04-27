@@ -10,12 +10,12 @@ module.exports = defineConfig({
   testDir: './tests/specs',
   fullyParallel: false, // Mobile tests usually require sequential execution per device
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 1,
+  retries: 0,
+  /* Stop on first failure locally to save time */
+  maxFailures: process.env.CI ? 0 : 1,
   
   /* 
    * DYNAMIC WORKER ENGINE 
-   * GitHub Actions: 1 worker per runner to ensure emulator stability.
-   * Local/Cloud: Scalable based on device count.
    */
   workers: process.env.CI ? 1 : (process.env.WORKERS || DEVICES.length),
 
@@ -28,8 +28,8 @@ module.exports = defineConfig({
   use: {
     /* Base timeout for Appium commands */
     actionTimeout: 30000,
-    trace: 'on-first-retry',
-    screenshot: 'only-on-failure',
+    trace: 'retain-on-failure',
+    screenshot: 'on',
   },
 
   /* 

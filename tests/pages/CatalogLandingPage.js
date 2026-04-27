@@ -54,6 +54,7 @@ class CatalogLandingPage extends BasePage {
   }
 
   async waitForPageLoad() {
+    await this.driver.pause(500); // Give UI transitions time to finish
     await this.waitForDisplayed(this.shopAllBtn);
   }
 

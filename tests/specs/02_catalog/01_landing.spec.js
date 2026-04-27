@@ -27,10 +27,6 @@ test.describe('Catalog Module - Landing UI Master Check', () => {
   });
 
   test('TC-C01: should verify Homepage comprehensive UI and adaptive scroll', async ({ driver }) => {
-    await loginPage.waitForPageLoad();
-    await loginPage.clearField(loginPage.passwordField);
-    await loginPage.login(null, loginPage.defaultPass);
-
     await landingPage.waitForPageLoad();
 
     // 1. Header Verification
@@ -71,25 +67,31 @@ test.describe('Catalog Module - Landing UI Master Check', () => {
   });
 
   test('TC-C03: should verify the "All Dresses" page default state (via Shop All)', async ({ driver }) => {
-    test.setTimeout(150000);
+    test.setTimeout(60000);
     const gridPage = new ProductGridPage(driver);
+
+    // 1. Wait for Homepage stability after TC-C02 return
+    await landingPage.waitForPageLoad();
     await landingPage.navigateToShopAll();
     await gridPage.waitForPageLoad();
 
-    // 1. Immediate Top Verification (Before scrolling)
+    // 2. Immediate Top Verification (Stay at the top)
     expect(await (await driver.$(landingPage.navMenuBtn)).isDisplayed()).toBe(true);
+    expect(await (await driver.$(gridPage.sortBtn)).isDisplayed()).toBe(true);
+    
     const firstProduct = await gridPage.getFirstProductDetails();
     expect(firstProduct).toContain(products.anchors.alphaFirst.name);
-    
-    // 2. Data Integrity Audit: Verify the rest while scrolling to bottom
-    const catalogIntact = await gridPage.verifyFullCatalogIntegrity();
-    expect(catalogIntact).toBe(true);
+
+    // Verify initial metadata (Data-Driven)
+    const resultCount = await driver.$(gridPage.resultCount);
+    expect(await resultCount.getAttribute('content-desc')).toContain(`${products.catalog.totalItems} items`);
   });
 
   test('TC-C04: should verify dynamic metadata updates and card integrity during full-page scroll', async ({ driver }) => {
-    test.setTimeout(120000);
+    test.setTimeout(180000);
     const gridPage = new ProductGridPage(driver);
     
+    // PERFORM THE AUDIT (Starts from the top where TC-C03 ended)
     const catalogIntact = await gridPage.verifyFullCatalogIntegrity();
     expect(catalogIntact).toBe(true);
   });
@@ -97,7 +99,8 @@ test.describe('Catalog Module - Landing UI Master Check', () => {
   test('TC-C05: should verify all sorting modes using Universal Product Truths', async ({ driver }) => {
     const gridPage = new ProductGridPage(driver);
     
-    if (!(await driver.$(gridPage.gridTitle('All Dresses'))).isDisplayed()) {
+    // Structural Check (Self-Healing Navigation)
+    if (!(await driver.$(gridPage.gridTitle(products.anchors.alphaFirst.name))).isExisting()) {
       await landingPage.navigateToShopAll();
       await gridPage.waitForPageLoad();
     }
@@ -136,7 +139,8 @@ test.describe('Catalog Module - Landing UI Master Check', () => {
     const gridPage = new ProductGridPage(driver);
     const cartPage = new CartPage(driver);
 
-    if (!(await driver.$(gridPage.gridTitle('All Dresses'))).isDisplayed()) {
+    // Structural Check (Data-Driven anchor)
+    if (!(await driver.$(gridPage.gridTitle(products.anchors.alphaFirst.name))).isExisting()) {
       await landingPage.navigateToShopAll();
       await gridPage.waitForPageLoad();
     }

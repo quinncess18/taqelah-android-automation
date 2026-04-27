@@ -92,7 +92,10 @@ test.describe('Login Functional Tests', () => {
   });
 
   test('TC-L05: should successfully login with valid demo credentials', async ({ driver }) => {
+    const { CatalogLandingPage } = require('../../pages/CatalogLandingPage');
     const loginPage = new LoginPage(driver);
+    const landingPage = new CatalogLandingPage(driver);
+    
     await loginPage.waitForPageLoad();
     
     // Fill credentials but don't submit yet
@@ -105,9 +108,8 @@ test.describe('Login Functional Tests', () => {
     // Submit
     await (await driver.$(loginPage.loginButton)).click();
 
-    const shopAllBtn = await driver.$('android=new UiSelector().className("android.widget.Button").description("Shop All")');
-    await shopAllBtn.waitForDisplayed({ timeout: 15000 });
-    expect(await shopAllBtn.isDisplayed()).toBe(true);
+    await landingPage.waitForPageLoad();
+    expect(await (await driver.$(landingPage.shopAllBtn)).isDisplayed()).toBe(true);
   });
 
   test('TC-L06: should persist session after process kill and successfully logout', async ({ driver }) => {
