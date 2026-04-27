@@ -110,6 +110,8 @@ test.describe('Catalog Module - Landing UI Master Check', () => {
     await gridPage.selectSort('LowHigh');
     await driver.pause(1000); 
     await gridPage.resetToTop();
+    await gridPage.nudgeToRevealFirstItem();
+    
     const lowPriceDetails = await gridPage.getFirstProductDetails();
     expect(lowPriceDetails).toContain(products.anchors.cheapest.price); 
 

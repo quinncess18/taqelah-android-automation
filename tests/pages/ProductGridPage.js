@@ -78,7 +78,8 @@ class ProductGridPage extends BasePage {
   }
 
   /**
-   * Universal Reset to Top (Turbo Optimized).
+   * Universal Reset to Top (Pure Navigation).
+   * Returns the grid to the absolute ceiling without nudging.
    */
   async resetToTop(count) {
     const { width, height } = await this.driver.getWindowRect();
@@ -104,6 +105,7 @@ class ProductGridPage extends BasePage {
         await this.driver.pause(150);
       }
     } else {
+      // TABLET: Hit the absolute ceiling (Power Swipes UP)
       for (let i = 0; i < resetCount; i++) {
         await this.driver.performActions([
           {
@@ -120,20 +122,19 @@ class ProductGridPage extends BasePage {
         ]);
         await this.driver.pause(200);
       }
-      await this.nudgeToRevealFirstItem();
     }
     await this.driver.pause(500); 
   }
 
   /**
-   * Performs a single, large flick to reveal the Name/Price of the first row.
+   * Performs a single, moderate flick to reveal the Name/Price of the first row.
    * Only active on Tablets/Pads where the cards are too tall for the viewport.
    */
   async nudgeToRevealFirstItem() {
     const { width, height } = await this.driver.getWindowRect();
     if (width > 1200) {
       const safeX = Math.round(width * 0.3);
-      // Calibrated 60% tug (Pulls labels from bottom row into clear view)
+      // Calibrated 60% tug (Definitively reveals labels on wide screens)
       await this.swipe(safeX, Math.round(height * 0.8), safeX, Math.round(height * 0.2), 800);
       await this.driver.pause(800);
     }
@@ -167,7 +168,7 @@ class ProductGridPage extends BasePage {
     const isTablet = width > 1200;
     const safeX = Math.round(width * 0.3);
 
-    while (collectedNames.size < totalGoal && scrollCount < maxFlicks) {
+    while (scrollCount < maxFlicks) {
       const items = await this.driver.$$('android=new UiSelector().className("android.widget.ImageView").clickable(true)');
       
       for (const item of items) {
@@ -207,12 +208,12 @@ class ProductGridPage extends BasePage {
             { type: 'pointerMove', duration: 0, x: safeX, y: Math.round(height * 0.8) },
             { type: 'pointerDown', button: 0 },
             { type: 'pointerMove', duration: 10, x: safeX, y: Math.round(height * 0.8) - 20 },
-            { type: 'pointerMove', duration: 1000, origin: 'viewport', x: safeX, y: Math.round(height * 0.15) },
+            { type: 'pointerMove', duration: 1000, origin: 'viewport', x: safeX, y: Math.round(height * 0.08) },
             { type: 'pointerUp', button: 0 },
           ],
         },
       ]);
-      await this.driver.pause(1000);
+      await this.driver.pause(1200);
     }
 
     // Final audit pass at the bottom
