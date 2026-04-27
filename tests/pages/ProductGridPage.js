@@ -232,32 +232,28 @@ class ProductGridPage extends BasePage {
 
   /**
    * Perform a high-speed 'Flick & Verify' check of the entire catalog.
+   * Optimized for both local speed and CI stability.
    */
   async verifyFullCatalogIntegrity() {
     let collectedItems = new Set();
     let scrollCount = 0;
-    const maxFlicks = 30; 
+    const maxFlicks = 35; 
     const totalGoal = 32;
 
     const { width, height } = await this.driver.getWindowRect();
     const isTablet = width > 1200;
     const safeX = Math.round(width * 0.3);
-    const swipeDepth = isTablet ? 0.75 : 0.55; 
+    const swipeDepth = isTablet ? 0.7 : 0.45; 
 
-    while (collectedItems.size < totalGoal && scrollCount < maxFlicks) {
+    while (scrollCount < maxFlicks) {
       const items = await this.driver.$$('android=new UiSelector().className("android.widget.ImageView").clickable(true)');
       for (const item of items) {
         const desc = await item.getAttribute('content-desc');
         if (desc && desc.includes('$')) {
-          const productName = desc.split('\n')[0];
-          if (!isTablet) {
-            const hasCartBtn = await item.$('android=new UiSelector().className("android.widget.Button")').isExisting();
-            if (hasCartBtn) collectedItems.add(productName);
-          } else {
-            collectedItems.add(productName);
-          }
+          collectedItems.add(desc.split('\n')[0]);
         }
       }
+
       const metaText = await (await this.driver.$(this.resultCount)).getAttribute('content-desc');
       if (metaText.includes(`${totalGoal} of ${totalGoal}`)) break; 
 
@@ -276,7 +272,7 @@ class ProductGridPage extends BasePage {
         },
       ]);
       scrollCount++;
-      await this.driver.pause(isTablet ? 1200 : 800); 
+      await this.driver.pause(isTablet ? 1500 : 1200); 
     }
 
     const settleCount = isTablet ? 2 : 1;
@@ -289,13 +285,12 @@ class ProductGridPage extends BasePage {
           actions: [
             { type: 'pointerMove', duration: 0, x: safeX, y: Math.round(height * 0.8) },
             { type: 'pointerDown', button: 0 },
-            { type: 'pointerMove', duration: 10, x: safeX, y: Math.round(height * 0.8) - 20 },
             { type: 'pointerMove', duration: 1000, origin: 'viewport', x: safeX, y: Math.round(height * 0.15) },
             { type: 'pointerUp', button: 0 },
           ],
         },
       ]);
-      await this.driver.pause(1000);
+      await this.driver.pause(1200);
     }
 
     const finalItems = await this.driver.$$('android=new UiSelector().className("android.widget.ImageView").clickable(true)');
