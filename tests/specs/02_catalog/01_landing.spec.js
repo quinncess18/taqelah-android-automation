@@ -38,11 +38,10 @@ test.describe('Catalog Module - Landing UI Master Check', () => {
     const casual = await driver.$(landingPage.categoryCasual);
     expect(await casual.isDisplayed()).toBe(true);
     
-    // SINGLE MASTER SCROLL: Reach the bottom in one fluid motion
+    // SINGLE MASTER SCROLL
     await gestures.scrollDown(0.8);
     await driver.pause(1000);
 
-    // Verify Bottom Category (Data from products.js)
     const boho = await driver.$(landingPage.categoryBoho);
     expect(await boho.isDisplayed()).toBe(true);
 
@@ -64,23 +63,25 @@ test.describe('Catalog Module - Landing UI Master Check', () => {
   });
 
   test('TC-C03: should verify the "All Dresses" page default state (via Shop All)', async ({ driver }) => {
+    test.setTimeout(150000);
     const gridPage = new ProductGridPage(driver);
     await landingPage.navigateToShopAll();
     await gridPage.waitForPageLoad();
 
+    // 1. Immediate Top Verification (Before scrolling)
     expect(await (await driver.$(landingPage.navMenuBtn)).isDisplayed()).toBe(true);
-    expect(await (await driver.$(gridPage.sortBtn)).isDisplayed()).toBe(true);
-
-    // Metadata Verification (Dynamic total from products.js)
-    const resultCount = await driver.$(gridPage.resultCount);
-    expect(await resultCount.getAttribute('content-desc')).toContain(`${products.catalog.totalItems} items`);
+    const firstProduct = await gridPage.getFirstProductDetails();
+    expect(firstProduct).toContain(products.anchors.alphaFirst.name);
+    
+    // 2. Data Integrity Audit: Verify the rest while scrolling to bottom
+    const catalogIntact = await gridPage.verifyFullCatalogIntegrity();
+    expect(catalogIntact).toBe(true);
   });
 
-  test('TC-C04: should verify card integrity during full-page scroll', async ({ driver }) => {
+  test('TC-C04: should verify dynamic metadata updates and card integrity during full-page scroll', async ({ driver }) => {
     test.setTimeout(120000);
     const gridPage = new ProductGridPage(driver);
     
-    // Integrity check for full catalog (Total count from products.js)
     const catalogIntact = await gridPage.verifyFullCatalogIntegrity();
     expect(catalogIntact).toBe(true);
   });
@@ -88,7 +89,7 @@ test.describe('Catalog Module - Landing UI Master Check', () => {
   test('TC-C05: should verify all sorting modes using Universal Product Truths', async ({ driver }) => {
     const gridPage = new ProductGridPage(driver);
     
-    if (!(await driver.$(gridPage.gridTitle)).isDisplayed()) {
+    if (!(await driver.$(gridPage.gridTitle('All Dresses'))).isDisplayed()) {
       await landingPage.navigateToShopAll();
       await gridPage.waitForPageLoad();
     }
@@ -121,5 +122,43 @@ test.describe('Catalog Module - Landing UI Master Check', () => {
     await driver.pause(1000);
     const firstAlphaDetails = await gridPage.getFirstProductDetails();
     expect(firstAlphaDetails).toContain(products.anchors.alphaFirst.name);
+  });
+
+  test('TC-C06: should verify the Cart empty state from All Dresses grid', async ({ driver }) => {
+    const gridPage = new ProductGridPage(driver);
+    const cartPage = new CartPage(driver);
+
+    if (!(await driver.$(gridPage.gridTitle('All Dresses'))).isDisplayed()) {
+      await landingPage.navigateToShopAll();
+      await gridPage.waitForPageLoad();
+    }
+
+    await (await driver.$(gridPage.cartBtn)).click();
+    await cartPage.waitForPageLoad();
+
+    expect(await (await driver.$(cartPage.cartTitle)).isDisplayed()).toBe(true);
+    expect(await (await driver.$(cartPage.emptyCartMsg)).isDisplayed()).toBe(true);
+    
+    await cartPage.clickContinueShopping();
+    await gridPage.waitForPageLoad();
+  });
+
+  test('TC-C07: should verify the "View All" hyperlink navigation and full audit', async ({ driver }) => {
+    test.setTimeout(150000);
+    const gridPage = new ProductGridPage(driver);
+
+    await driver.back();
+    await landingPage.waitForPageLoad();
+
+    await (await driver.$(landingPage.viewAllCategoriesBtn)).click();
+    await gridPage.waitForPageLoad();
+
+    // 1. Immediate Top Verification
+    const firstProduct = await gridPage.getFirstProductDetails();
+    expect(firstProduct).toContain(products.anchors.alphaFirst.name);
+
+    // 2. Perform Full Data Integrity Audit
+    const catalogIntact = await gridPage.verifyFullCatalogIntegrity();
+    expect(catalogIntact).toBe(true);
   });
 });

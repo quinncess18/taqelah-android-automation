@@ -13,9 +13,9 @@ class ProductGridPage extends BasePage {
     super(driver);
     
     // Header Selectors
-    this.gridTitle = this.isAndroid 
-      ? 'android=new UiSelector().description("All Dresses")' 
-      : '~All Dresses';
+    this.gridTitle = (name) => this.isAndroid 
+      ? `android=new UiSelector().description("${name}")` 
+      : `~${name}`;
     
     this.sortBtn = this.isAndroid 
       ? 'android=new UiSelector().className("android.widget.Button").instance(1)' 
@@ -66,8 +66,6 @@ class ProductGridPage extends BasePage {
 
   /**
    * Select a sorting option. 
-   * Note: Does not perform a scroll reset. Use resetToTop() if verification is needed at the top.
-   * @param {'AZ' | 'ZA' | 'LowHigh' | 'HighLow'} type 
    */
   async selectSort(type) {
     const selector = type === 'AZ' ? this.sortOptionAZ :
@@ -81,19 +79,14 @@ class ProductGridPage extends BasePage {
 
   /**
    * Universal Reset to Top.
-   * Intelligently snaps the grid to the absolute top based on device type.
-   * @param {number} [count] Optional override for number of swipes.
    */
   async resetToTop(count) {
     const { width, height } = await this.driver.getWindowRect();
     const isTablet = width > 1200;
     const safeX = Math.round(width * 0.3);
-
-    // Use provided count or device-specific defaults (Mobile: 2, Tablet: 4)
-    const resetCount = count || (isTablet ? 4 : 2);
+    const resetCount = count || (isTablet ? 3 : 2);
 
     if (!isTablet) {
-      // MOBILE: Short middle-zone flicks
       for (let i = 0; i < resetCount; i++) {
         await this.driver.performActions([
           {
@@ -111,8 +104,7 @@ class ProductGridPage extends BasePage {
         await this.driver.pause(400);
       }
     } else {
-      // TABLET: Four sequential Wide-Throw Power Swipes (Doubled)
-      for (let i = 0; i < 4; i++) {
+      for (let i = 0; i < resetCount; i++) {
         await this.driver.performActions([
           {
             type: 'pointer',
@@ -128,8 +120,7 @@ class ProductGridPage extends BasePage {
         ]);
         await this.driver.pause(600);
       }
-
-      // DETAIL NUDGE: Pull the page UP slightly to reveal the Name/Price of the first tall card
+      // Detail Nudge
       await this.driver.performActions([
         {
           type: 'pointer',
@@ -145,11 +136,10 @@ class ProductGridPage extends BasePage {
       ]);
     }
     await this.driver.pause(1000); 
-    }
+  }
 
   /**
    * Get attributes of the first visual product in the grid.
-   * Targets the first clickable ImageView to ensure stability across columns.
    */
   async getFirstProductDetails() {
     const selector = this.isAndroid 
@@ -162,91 +152,48 @@ class ProductGridPage extends BasePage {
   }
 
   /**
-   * Search for a specific term
+   * Perform a data-driven integrity audit of a specific category.
+   * Matches exactly against the provided product list (Names and Prices).
+   * @param {Object} categoryData - From products.js
    */
-  async searchForItem(term) {
-    const search = await this.driver.$(this.searchInput);
-    await search.click();
-    await search.addValue(term);
-    await this.driver.pause(1000); 
-    if (await this.driver.isKeyboardShown()) await this.driver.hideKeyboard();
-  }
-
-  async getVisibleProductCount() {
-    const selector = this.isAndroid 
-      ? 'android=new UiSelector().className("android.widget.ImageView").clickable(true)' 
-      : '~product-item';
-    const items = await this.driver.$$(selector);
-    return items.length;
-  }
-
-  /**
-   * Perform a high-speed 'Flick & Verify' check of the entire catalog.
-   * Confirms every card contains an Image, Name, and Price.
-   * Cart button check is handled adaptively (some tablet layouts hide it).
-   */
-  async verifyFullCatalogIntegrity() {
-    let collectedItems = new Set();
+  async verifyCategoryIntegrity(categoryData) {
+    let collectedNames = new Set();
     let scrollCount = 0;
-    const maxFlicks = 30; // Increased to ensure Tablet reaches the bottom
-    const totalGoal = 32;
+    const maxFlicks = 10;
+    const totalGoal = categoryData.count;
 
     const { width, height } = await this.driver.getWindowRect();
     const isTablet = width > 1200;
     const safeX = Math.round(width * 0.3);
-    
-    // DEVICE-SPECIFIC GESTURE MAP
-    const swipeDepth = isTablet ? 0.75 : 0.55; 
 
-    while (collectedItems.size < totalGoal && scrollCount < maxFlicks) {
-      // 1. Capture current visible items FIRST
+    while (collectedNames.size < totalGoal && scrollCount < maxFlicks) {
       const items = await this.driver.$$('android=new UiSelector().className("android.widget.ImageView").clickable(true)');
       
       for (const item of items) {
         const desc = await item.getAttribute('content-desc');
         if (desc && desc.includes('$')) {
-          const productName = desc.split('\n')[0];
+          const [name, price] = desc.split('\n');
           
-          if (!isTablet) {
-            const hasCartBtn = await item.$('android=new UiSelector().className("android.widget.Button")').isExisting();
-            if (hasCartBtn) collectedItems.add(productName);
-          } else {
-            collectedItems.add(productName);
+          const expectedProduct = categoryData.products.find(p => p.name === name);
+          if (expectedProduct) {
+            if (expectedProduct.price !== price) {
+              throw new Error(`Data Mismatch: Product "${name}" expected price ${expectedProduct.price}, got ${price}`);
+            }
+            collectedNames.add(name);
           }
         }
       }
 
-      // 2. METADATA CHECK (After Scan): Break only if we are truly at the end
-      const metaText = await (await this.driver.$(this.resultCount)).getAttribute('content-desc');
-      if (metaText.includes(`${totalGoal} of ${totalGoal}`)) {
-        break; 
-      }
+      if (collectedNames.size >= totalGoal) break;
 
-      // 3. Perform Adaptive Swipe
-      const startY = Math.round(height * 0.8); 
-      const endY = Math.round(height * (0.8 - swipeDepth));
-
-      await this.driver.performActions([
-        {
-          type: 'pointer',
-          id: 'finger1',
-          parameters: { pointerType: 'touch' },
-          actions: [
-            { type: 'pointerMove', duration: 0, x: safeX, y: startY },
-            { type: 'pointerDown', button: 0 },
-            { type: 'pointerMove', duration: 10, x: safeX, y: startY - 20 },
-            { type: 'pointerMove', duration: 1000, origin: 'viewport', x: safeX, y: endY },
-            { type: 'pointerUp', button: 0 },
-          ],
-        },
-      ]);
-      
+      // Safe Middle-Slice Flick
+      await this.swipe(safeX, Math.round(height * 0.75), safeX, Math.round(height * 0.25), 1000);
       scrollCount++;
-      await this.driver.pause(isTablet ? 1200 : 800); 
+      await this.driver.pause(1000);
     }
 
-    // FINAL SETTLE: Force the absolute bottom edge into view
-    // Tablets need two swipes to clear their tall cards; Mobile only needs one.
+    // FINAL ANCHOR TUG: Force the absolute bottom edge into view
+    // Tablets need two tugs to clear their tall cards; Mobile only needs one.
     const settleCount = isTablet ? 2 : 1;
     
     for (let i = 0; i < settleCount; i++) {
@@ -267,7 +214,89 @@ class ProductGridPage extends BasePage {
       await this.driver.pause(1000);
     }
 
-    // FINAL AUDIT: Capture the items revealed by the settle swipes
+    // Final audit pass at the bottom
+    const finalItems = await this.driver.$$('android=new UiSelector().className("android.widget.ImageView").clickable(true)');
+    for (const item of finalItems) {
+      const desc = await item.getAttribute('content-desc');
+      if (desc && desc.includes('$')) {
+        const name = desc.split('\n')[0];
+        if (categoryData.products.some(p => p.name === name)) {
+          collectedNames.add(name);
+        }
+      }
+    }
+
+    return collectedNames.size === totalGoal;
+  }
+
+  /**
+   * Perform a high-speed 'Flick & Verify' check of the entire catalog.
+   */
+  async verifyFullCatalogIntegrity() {
+    let collectedItems = new Set();
+    let scrollCount = 0;
+    const maxFlicks = 30; 
+    const totalGoal = 32;
+
+    const { width, height } = await this.driver.getWindowRect();
+    const isTablet = width > 1200;
+    const safeX = Math.round(width * 0.3);
+    const swipeDepth = isTablet ? 0.75 : 0.55; 
+
+    while (collectedItems.size < totalGoal && scrollCount < maxFlicks) {
+      const items = await this.driver.$$('android=new UiSelector().className("android.widget.ImageView").clickable(true)');
+      for (const item of items) {
+        const desc = await item.getAttribute('content-desc');
+        if (desc && desc.includes('$')) {
+          const productName = desc.split('\n')[0];
+          if (!isTablet) {
+            const hasCartBtn = await item.$('android=new UiSelector().className("android.widget.Button")').isExisting();
+            if (hasCartBtn) collectedItems.add(productName);
+          } else {
+            collectedItems.add(productName);
+          }
+        }
+      }
+      const metaText = await (await this.driver.$(this.resultCount)).getAttribute('content-desc');
+      if (metaText.includes(`${totalGoal} of ${totalGoal}`)) break; 
+
+      await this.driver.performActions([
+        {
+          type: 'pointer',
+          id: 'finger1',
+          parameters: { pointerType: 'touch' },
+          actions: [
+            { type: 'pointerMove', duration: 0, x: safeX, y: Math.round(height * 0.8) },
+            { type: 'pointerDown', button: 0 },
+            { type: 'pointerMove', duration: 10, x: safeX, y: Math.round(height * 0.8) - 20 },
+            { type: 'pointerMove', duration: 1000, origin: 'viewport', x: safeX, y: Math.round(height * (0.8 - swipeDepth)) },
+            { type: 'pointerUp', button: 0 },
+          ],
+        },
+      ]);
+      scrollCount++;
+      await this.driver.pause(isTablet ? 1200 : 800); 
+    }
+
+    const settleCount = isTablet ? 2 : 1;
+    for (let i = 0; i < settleCount; i++) {
+      await this.driver.performActions([
+        {
+          type: 'pointer',
+          id: 'finger1',
+          parameters: { pointerType: 'touch' },
+          actions: [
+            { type: 'pointerMove', duration: 0, x: safeX, y: Math.round(height * 0.8) },
+            { type: 'pointerDown', button: 0 },
+            { type: 'pointerMove', duration: 10, x: safeX, y: Math.round(height * 0.8) - 20 },
+            { type: 'pointerMove', duration: 1000, origin: 'viewport', x: safeX, y: Math.round(height * 0.15) },
+            { type: 'pointerUp', button: 0 },
+          ],
+        },
+      ]);
+      await this.driver.pause(1000);
+    }
+
     const finalItems = await this.driver.$$('android=new UiSelector().className("android.widget.ImageView").clickable(true)');
     for (const item of finalItems) {
       const desc = await item.getAttribute('content-desc');
@@ -275,7 +304,6 @@ class ProductGridPage extends BasePage {
         collectedItems.add(desc.split('\n')[0]);
       }
     }
-
     return collectedItems.size >= totalGoal;
   }
 }

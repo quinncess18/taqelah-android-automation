@@ -67,15 +67,17 @@ class CatalogLandingPage extends BasePage {
 
   /**
    * Select a category by name. 
+   * Uses fuzzy matching to ensure the correct card is picked even with naming variations.
    */
   async selectCategory(name) {
-    const selector = name === 'Casual' ? this.categoryCasual :
-                     name === 'Evening' ? this.categoryEvening :
-                     name === 'Party' ? this.categoryParty :
-                     this.categoryBoho;
+    let selector;
+    if (name.includes('Casual')) selector = this.categoryCasual;
+    else if (name.includes('Evening')) selector = this.categoryEvening;
+    else if (name.includes('Party')) selector = this.categoryParty;
+    else selector = this.categoryBoho;
       
     const el = await this.driver.$(selector);
-    if (!(await el.isDisplayed())) {
+    if (!(await this.isInsideViewport(selector))) {
       await this.scrollToCategory(name);
     }
     await el.click();
@@ -86,10 +88,11 @@ class CatalogLandingPage extends BasePage {
    * Performs a single, fluid 50% swipe if the element is not centered.
    */
   async scrollToCategory(name) {
-    const selector = name === 'Casual' ? this.categoryCasual :
-                     name === 'Evening' ? this.categoryEvening :
-                     name === 'Party' ? this.categoryParty :
-                     this.categoryBoho;
+    let selector;
+    if (name.includes('Casual')) selector = this.categoryCasual;
+    else if (name.includes('Evening')) selector = this.categoryEvening;
+    else if (name.includes('Party')) selector = this.categoryParty;
+    else selector = this.categoryBoho;
     
     // SMART FLUID CHECK: If the center of the category is not in the comfort zone, swipe once.
     if (!(await this.isInsideViewport(selector))) {
