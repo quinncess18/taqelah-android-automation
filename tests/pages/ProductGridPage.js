@@ -78,7 +78,7 @@ class ProductGridPage extends BasePage {
   }
 
   /**
-   * Universal Reset to Top.
+   * Universal Reset to Top (Turbo Optimized).
    */
   async resetToTop(count) {
     const { width, height } = await this.driver.getWindowRect();
@@ -96,12 +96,12 @@ class ProductGridPage extends BasePage {
             actions: [
               { type: 'pointerMove', duration: 0, x: safeX, y: Math.round(height * 0.45) },
               { type: 'pointerDown', button: 0 },
-              { type: 'pointerMove', duration: 600, origin: 'viewport', x: safeX, y: Math.round(height * 0.65) },
+              { type: 'pointerMove', duration: 400, origin: 'viewport', x: safeX, y: Math.round(height * 0.65) },
               { type: 'pointerUp', button: 0 },
             ],
           },
         ]);
-        await this.driver.pause(400);
+        await this.driver.pause(150);
       }
     } else {
       for (let i = 0; i < resetCount; i++) {
@@ -113,29 +113,30 @@ class ProductGridPage extends BasePage {
             actions: [
               { type: 'pointerMove', duration: 0, x: safeX, y: Math.round(height * 0.25) },
               { type: 'pointerDown', button: 0 },
-              { type: 'pointerMove', duration: 1200, origin: 'viewport', x: safeX, y: Math.round(height * 0.9) },
+              { type: 'pointerMove', duration: 600, origin: 'viewport', x: safeX, y: Math.round(height * 0.9) },
               { type: 'pointerUp', button: 0 },
             ],
           },
         ]);
-        await this.driver.pause(600);
+        await this.driver.pause(200);
       }
-      // Detail Nudge
-      await this.driver.performActions([
-        {
-          type: 'pointer',
-          id: 'finger1',
-          parameters: { pointerType: 'touch' },
-          actions: [
-            { type: 'pointerMove', duration: 0, x: safeX, y: Math.round(height * 0.7) },
-            { type: 'pointerDown', button: 0 },
-            { type: 'pointerMove', duration: 1000, origin: 'viewport', x: safeX, y: Math.round(height * 0.5) },
-            { type: 'pointerUp', button: 0 },
-          ],
-        },
-      ]);
+      await this.nudgeToRevealFirstItem();
     }
-    await this.driver.pause(1000); 
+    await this.driver.pause(500); 
+  }
+
+  /**
+   * Performs a single, large flick to reveal the Name/Price of the first row.
+   * Only active on Tablets/Pads where the cards are too tall for the viewport.
+   */
+  async nudgeToRevealFirstItem() {
+    const { width, height } = await this.driver.getWindowRect();
+    if (width > 1200) {
+      const safeX = Math.round(width * 0.3);
+      // Calibrated 60% tug (Pulls labels from bottom row into clear view)
+      await this.swipe(safeX, Math.round(height * 0.8), safeX, Math.round(height * 0.2), 800);
+      await this.driver.pause(800);
+    }
   }
 
   /**

@@ -7,26 +7,10 @@
 module.exports = {
   // Sorting Anchors (Top results for each mode in 'All Dresses')
   anchors: {
-    cheapest: { 
-      name: "Casual Sundress", 
-      price: "$49.99",
-      regexPrice: /\$49\.99/
-    },
-    mostExpensive: { 
-      name: "Champagne Gown", 
-      price: "$319.99",
-      regexPrice: /\$319\.99/
-    },
-    alphaFirst: { 
-      name: "Black Sequin Mini", 
-      price: "$119.99",
-      regexAlpha: /Black Sequin Mini/
-    },
-    alphaLast: { 
-      name: "Yellow Sundress", 
-      price: "$54.99",
-      regexAlpha: /Yellow Sundress/
-    }
+    cheapest: { name: "Casual Sundress", price: "$49.99" },
+    mostExpensive: { name: "Champagne Gown", price: "$319.99" },
+    alphaFirst: { name: "Black Sequin Mini", price: "$119.99" },
+    alphaLast: { name: "Yellow Sundress", price: "$54.99" }
   },
 
   // Category Configuration - 100% accurate to UI Dump headers
@@ -34,7 +18,6 @@ module.exports = {
     casual: { 
       name: "Casual Dresses", 
       count: 8, 
-      subtitle: "Everyday comfort & style",
       products: [
         { name: "Casual Sundress", price: "$49.99" },
         { name: "Denim Dress", price: "$74.99" },
@@ -44,12 +27,17 @@ module.exports = {
         { name: "Shirt Dress", price: "$79.99" },
         { name: "White Linen Dress", price: "$64.99" },
         { name: "Yellow Sundress", price: "$54.99" }
-      ]
+      ],
+      anchors: {
+        cheapest: "$49.99",
+        mostExpensive: "$89.99",
+        alphaFirst: "Casual Sundress",
+        alphaLast: "Yellow Sundress"
+      }
     },
     evening: { 
       name: "Evening Dresses", 
       count: 8, 
-      subtitle: "Elegant gowns & formal wear",
       products: [
         { name: "Burgundy Velvet Dress", price: "$189.99" },
         { name: "Champagne Gown", price: "$319.99" },
@@ -59,12 +47,17 @@ module.exports = {
         { name: "Red Evening Dress", price: "$279.99" },
         { name: "Rose Satin Gown", price: "$299.99" },
         { name: "Satin Evening Gown", price: "$249.99" }
-      ]
+      ],
+      anchors: {
+        cheapest: "$159.99",
+        mostExpensive: "$319.99",
+        alphaFirst: "Burgundy Velvet Dress",
+        alphaLast: "Satin Evening Gown"
+      }
     },
     party: { 
       name: "Party Dresses", 
       count: 8, 
-      subtitle: "Cocktail & party dresses",
       products: [
         { name: "Black Sequin Mini", price: "$119.99" },
         { name: "Copper Sequin Dress", price: "$134.99" },
@@ -74,12 +67,17 @@ module.exports = {
         { name: "Mint Cocktail Dress", price: "$109.99" },
         { name: "Navy Cocktail Dress", price: "$149.99" },
         { name: "Rose Gold Mini", price: "$124.99" }
-      ]
+      ],
+      anchors: {
+        cheapest: "$109.99",
+        mostExpensive: "$159.99",
+        alphaFirst: "Black Sequin Mini",
+        alphaLast: "Rose Gold Mini"
+      }
     },
     boho: { 
       name: "Boho Dresses", 
       count: 8, 
-      subtitle: "Free-spirited & artistic",
       products: [
         { name: "Boho Wrap Dress", price: "$69.99" },
         { name: "Crochet White Dress", price: "$94.99" },
@@ -89,7 +87,13 @@ module.exports = {
         { name: "Pleated Midi Skirt", price: "$59.99" },
         { name: "Terracotta Boho Dress", price: "$99.99" },
         { name: "Turquoise Print Dress", price: "$79.99" }
-      ]
+      ],
+      anchors: {
+        cheapest: "$59.99",
+        mostExpensive: "$99.99",
+        alphaFirst: "Boho Wrap Dress",
+        alphaLast: "Turquoise Print Dress"
+      }
     }
   },
 
