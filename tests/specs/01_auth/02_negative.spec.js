@@ -3,9 +3,13 @@ const { test, expect } = require('../../../fixtures/appFixture');
 const { LoginPage } = require('../../pages/LoginPage');
 
 test.describe('Login Negative Tests', () => {
+  let loginPage;
+
+  test.beforeAll(async ({ driver }) => {
+    loginPage = new LoginPage(driver);
+  });
   
   test('TC-N01: should show validation errors when fields are left empty', async ({ driver }) => {
-    const loginPage = new LoginPage(driver);
     await loginPage.waitForPageLoad();
 
     // login() helper handles the submission and keyboard dismissal automatically
@@ -21,7 +25,6 @@ test.describe('Login Negative Tests', () => {
   });
 
   test('TC-N02: should show error for invalid username format', async ({ driver }) => {
-    const loginPage = new LoginPage(driver);
     await loginPage.waitForPageLoad();
     
     await loginPage.fillCredentials('invalid-user', loginPage.defaultPass);
@@ -40,7 +43,6 @@ test.describe('Login Negative Tests', () => {
   });
 
   test('TC-N03: should show error for valid username with invalid password', async ({ driver }) => {
-    const loginPage = new LoginPage(driver);
     await loginPage.waitForPageLoad();
     
     await loginPage.fillCredentials(loginPage.defaultUser, 'wrong-pass');

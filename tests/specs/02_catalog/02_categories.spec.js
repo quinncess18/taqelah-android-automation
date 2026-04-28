@@ -8,10 +8,12 @@ const products = require('../../data/products');
 test.describe('Catalog Module - Category Data & Functional Integrity', () => {
   let landingPage;
   let gridPage;
+  let cartPage;
 
   test.beforeAll(async ({ driver }) => {
     landingPage = new CatalogLandingPage(driver);
     gridPage = new ProductGridPage(driver);
+    cartPage = new CartPage(driver);
   });
 
   /**
@@ -21,8 +23,6 @@ test.describe('Catalog Module - Category Data & Functional Integrity', () => {
    * @param {Object} data - Category data from products.js
    */
   async function performCategoryFunctionalAudit(driver, data) {
-    const cartPage = new CartPage(driver);
-
     // 1. Navigation
     await landingPage.selectCategory(data.name);
     await gridPage.waitForPageLoad();

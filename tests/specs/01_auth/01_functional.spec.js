@@ -1,11 +1,18 @@
 // @ts-check
 const { test, expect } = require('../../../fixtures/appFixture');
 const { LoginPage } = require('../../pages/LoginPage');
+const { CatalogLandingPage } = require('../../pages/CatalogLandingPage');
 
 test.describe('Login Functional Tests', () => {
+  let loginPage;
+  let landingPage;
+
+  test.beforeAll(async ({ driver }) => {
+    loginPage = new LoginPage(driver);
+    landingPage = new CatalogLandingPage(driver);
+  });
   
   test('TC-L01: should verify that the login page elements are visible', async ({ driver }) => {
-    const loginPage = new LoginPage(driver);
     await loginPage.waitForPageLoad();
     
     expect(await (await driver.$(loginPage.title)).isDisplayed()).toBe(true);
@@ -15,7 +22,6 @@ test.describe('Login Functional Tests', () => {
   });
 
   test('TC-L02: should toggle password visibility and maintain layout stability', async ({ driver }) => {
-    const loginPage = new LoginPage(driver);
     await loginPage.waitForPageLoad();
     
     // REQUIREMENT: Wrong password input + eye toggle function
@@ -37,7 +43,6 @@ test.describe('Login Functional Tests', () => {
   });
 
   test('TC-L03: should preserve credential state when the app is backgrounded (Home Button)', async ({ driver }) => {
-    const loginPage = new LoginPage(driver);
     await loginPage.waitForPageLoad();
 
     // REQUIREMENT: Correct username + retain masked incorrect password from L02
@@ -67,7 +72,6 @@ test.describe('Login Functional Tests', () => {
   });
 
   test('TC-L04: should clear unsaved credential state when the app is exited (Back Button)', async ({ driver }) => {
-    const loginPage = new LoginPage(driver);
     if (!driver.isAndroid) return; 
 
     await loginPage.waitForPageLoad();
@@ -92,10 +96,6 @@ test.describe('Login Functional Tests', () => {
   });
 
   test('TC-L05: should successfully login with valid demo credentials', async ({ driver }) => {
-    const { CatalogLandingPage } = require('../../pages/CatalogLandingPage');
-    const loginPage = new LoginPage(driver);
-    const landingPage = new CatalogLandingPage(driver);
-    
     await loginPage.waitForPageLoad();
     
     // Fill credentials but don't submit yet
@@ -113,7 +113,6 @@ test.describe('Login Functional Tests', () => {
   });
 
   test('TC-L06: should persist session after process kill and successfully logout', async ({ driver }) => {
-    const loginPage = new LoginPage(driver);
     await loginPage.waitForPageLoad();
 
     // 1. Verify Persistence

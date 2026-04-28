@@ -10,11 +10,15 @@ const products = require('../../data/products');
 test.describe('Catalog Module - Landing UI Master Check', () => {
   let loginPage;
   let landingPage;
+  let gridPage;
+  let cartPage;
   let gestures;
 
   test.beforeAll(async ({ driver }) => {
     loginPage = new LoginPage(driver);
     landingPage = new CatalogLandingPage(driver);
+    gridPage = new ProductGridPage(driver);
+    cartPage = new CartPage(driver);
     gestures = new Gestures(driver);
 
     // SELF-HEALING: Only login if the app is on the login screen
@@ -55,7 +59,6 @@ test.describe('Catalog Module - Landing UI Master Check', () => {
   });
 
   test('TC-C02: should verify the Cart empty state from Homepage', async ({ driver }) => {
-    const cartPage = new CartPage(driver);
     await (await driver.$(landingPage.cartBtn)).click();
     await cartPage.waitForPageLoad();
 
@@ -68,7 +71,6 @@ test.describe('Catalog Module - Landing UI Master Check', () => {
 
   test('TC-C03: should verify the "All Dresses" page default state (via Shop All)', async ({ driver }) => {
     test.setTimeout(60000);
-    const gridPage = new ProductGridPage(driver);
 
     // 1. Wait for Homepage stability after TC-C02 return
     await landingPage.waitForPageLoad();
@@ -89,7 +91,6 @@ test.describe('Catalog Module - Landing UI Master Check', () => {
 
   test('TC-C04: should verify dynamic metadata updates and card integrity during full-page scroll', async ({ driver }) => {
     test.setTimeout(180000);
-    const gridPage = new ProductGridPage(driver);
     
     // PERFORM THE AUDIT (Starts from the top where TC-C03 ended)
     const catalogIntact = await gridPage.verifyFullCatalogIntegrity();
@@ -97,8 +98,6 @@ test.describe('Catalog Module - Landing UI Master Check', () => {
   });
 
   test('TC-C05: should verify all sorting modes using Universal Product Truths', async ({ driver }) => {
-    const gridPage = new ProductGridPage(driver);
-    
     // Structural Check (Self-Healing Navigation)
     if (!(await driver.$(gridPage.gridTitle(products.anchors.alphaFirst.name))).isExisting()) {
       await landingPage.navigateToShopAll();
@@ -138,9 +137,6 @@ test.describe('Catalog Module - Landing UI Master Check', () => {
   });
 
   test('TC-C06: should verify the Cart empty state from All Dresses grid', async ({ driver }) => {
-    const gridPage = new ProductGridPage(driver);
-    const cartPage = new CartPage(driver);
-
     // Structural Check (Data-Driven anchor)
     if (!(await driver.$(gridPage.gridTitle(products.anchors.alphaFirst.name))).isExisting()) {
       await landingPage.navigateToShopAll();
@@ -159,7 +155,6 @@ test.describe('Catalog Module - Landing UI Master Check', () => {
 
   test('TC-C07: should verify the "View All" hyperlink navigation and full audit', async ({ driver }) => {
     test.setTimeout(150000);
-    const gridPage = new ProductGridPage(driver);
 
     await driver.back();
     await landingPage.waitForPageLoad();

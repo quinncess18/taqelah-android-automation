@@ -30,7 +30,16 @@ Defines the test coverage and verification strategy for the Taqelah Android appl
 | **TC-C10** | Party Dresses Data Integrity | Data-Driven | ✅ Verified |
 | **TC-C11** | Boho Dresses Data Integrity | Data-Driven | ✅ Verified |
 
-## 3. Shopping Cart
+## 3. Navigation & Utility
+| Test ID | Description | Strategy | Status |
+| :--- | :--- | :--- | :--- |
+| **TC-M01** | Global Routing Audit (12+ Items) | Functional E2E | ⏳ Pending |
+| **TC-M02** | Dark Mode Theme Toggle | Component Interaction | ⏳ Pending |
+| **TC-M03** | Structural Boundary Verification | Negative Boundary | ⏳ Pending |
+| **TC-M04** | Drawer Persistence & Scroll Lock | State Integrity | ⏳ Pending |
+| **TC-M05** | Centralized Logout Lifecycle | Destructive Flow | ⏳ Pending |
+
+## 4. Shopping Cart
 | Test ID | Description | Strategy | Status |
 | :--- | :--- | :--- | :--- |
 | **TC-S01** | Add single item to cart | E2E Flow | ⏳ Pending |
