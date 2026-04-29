@@ -1,6 +1,11 @@
 # TEST_PLAN.md
 
-Defines the test coverage and verification strategy for the Taqelah Android application.
+Defines the test coverage and verification strategy for the Taqelah mobile application.
+
+**Current scope:** Android emulators (Pixel 8, Pixel Tablet).
+**Roadmap:** iOS platform support (iPhone 15 Pro, iPad) post-June workshop.
+
+> All ✅ Verified statuses below refer to Android emulator runs. iOS verification pending.
 
 ## 1. Authentication Module
 | Test ID | Description | Strategy | Status |
@@ -46,7 +51,7 @@ Defines the test coverage and verification strategy for the Taqelah Android appl
 | **TC-S02** | Update item quantity in cart | UI Interaction | ⏳ Pending |
 | **TC-S03** | Remove item from cart | UI Interaction | ⏳ Pending |
 
-## 4. Checkout
+## 5. Checkout
 | Test ID | Description | Strategy | Status |
 | :--- | :--- | :--- | :--- |
 | **TC-K01** | Complete purchase flow (Guest/User) | Full E2E | ⏳ Pending |
