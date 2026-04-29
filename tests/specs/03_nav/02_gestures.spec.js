@@ -213,4 +213,46 @@ test.describe('Navigation - Gestures Interaction Suite (02)', () => {
     await (await driver.$(gesturesPage.backBtn)).click();
     await landingPage.waitForPageLoad();
   });
+
+  test('TC-M05: should verify Double Tap and Pinch Zoom interactions', async ({ driver }) => {
+    // 1. Navigate to Gestures
+    await navMenu.open();
+    await navMenu.navigateTo(navMenu.navGestures);
+    await gesturesPage.waitForPageLoad();
+
+    // 2. Scroll to the Zoom sections using POM method
+    await gesturesPage.scrollToZoomSection();
+
+    const doubleTapLabel = await driver.$(gesturesPage.doubleTapArea);
+    await doubleTapLabel.waitForDisplayed({ timeout: 5000 });
+
+    const location = await doubleTapLabel.getLocation();
+    const size = await doubleTapLabel.getSize();
+    const tapX = Math.round(location.x + size.width * 0.5);
+    const tapY = Math.round(location.y + size.height * 2.5); // Safe image center below label
+
+    // 3. Double Tap (Zoom Out)
+    await gesturesPage.doubleTap(tapX, tapY);
+    await driver.pause(1500);
+
+    // 4. Pinch Open (Zoom In)
+    await gesturesPage.pinchOpen(tapX, tapY);
+    await driver.pause(1000);
+
+    // 5. North Drag - Step 1 (Bring back into view)
+    const endDX = Math.round(location.x + size.width * 0.1); 
+    const endDY1 = Math.round(location.y - size.height * 0.5); 
+    await gesturesPage.drag(tapX, tapY, endDX, endDY1, 1);
+    await driver.pause(500);
+
+    // 6. North Drag - Step 2 (Second swipe to center full image)
+    const endDY2 = Math.round(location.y - size.height * 1.0);
+    await gesturesPage.drag(tapX, tapY, endDX, endDY2, 2);
+
+    await driver.pause(2000);
+
+    // Return to Homepage
+    await (await driver.$(gesturesPage.backBtn)).click();
+    await landingPage.waitForPageLoad();
+  });
 });

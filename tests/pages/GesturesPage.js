@@ -77,6 +77,92 @@ class GesturesPage extends BasePage {
     await this.swipe(safeX, startY, safeX, endY, 400);
     await this.driver.pause(1000);
   }
+
+  /**
+   * Scrolls to center the Zoom sections in the viewport.
+   * Follows a safe path starting from 75% to avoid sensitive areas like Long Press.
+   */
+  async scrollToZoomSection() {
+    const { width, height } = await this.driver.getWindowRect();
+    const centerX = width / 2;
+    // Scroll 1: Safe top-half swipe
+    await this.swipe(centerX, height * 0.4, centerX, height * 0.1, 500);
+    await this.driver.pause(1000);
+    // Scroll 2: Start lower to avoid any intermediate long-press areas
+    await this.swipe(centerX, height * 0.75, centerX, height * 0.45, 500);
+    await this.driver.pause(1000);
+    // Scroll 3: Final centering
+    await this.swipe(centerX, height * 0.75, centerX, height * 0.45, 500);
+    await this.driver.pause(1000);
+  }
+
+  /**
+   * Performs a double tap on the specified coordinates.
+   */
+  async doubleTap(x, y) {
+    await this.driver.performActions([{
+      type: 'pointer', id: 'finger1', parameters: { pointerType: 'touch' },
+      actions: [
+        { type: 'pointerMove', duration: 0, x, y },
+        { type: 'pointerDown', button: 0 },
+        { type: 'pointerUp', button: 0 },
+        { type: 'pause', duration: 100 },
+        { type: 'pointerDown', button: 0 },
+        { type: 'pointerUp', button: 0 }
+      ]
+    }]);
+  }
+
+  /**
+   * Performs a pinch open gesture centered at (x, y).
+   */
+  async pinchOpen(x, y) {
+    const startX1 = x - 10;
+    const startX2 = x + 10;
+    const endX1 = x - 200;
+    const endX2 = x + 200;
+    const endY1 = y - 200;
+    const endY2 = y + 200;
+
+    await this.driver.performActions([
+      {
+        type: 'pointer', id: 'finger1', parameters: { pointerType: 'touch' },
+        actions: [
+          { type: 'pointerMove', duration: 0, x: startX1, y },
+          { type: 'pointerDown', button: 0 },
+          { type: 'pause', duration: 200 },
+          { type: 'pointerMove', duration: 1000, origin: 'viewport', x: endX1, y: endY1 },
+          { type: 'pointerUp', button: 0 }
+        ]
+      },
+      {
+        type: 'pointer', id: 'finger2', parameters: { pointerType: 'touch' },
+        actions: [
+          { type: 'pointerMove', duration: 0, x: startX2, y },
+          { type: 'pointerDown', button: 0 },
+          { type: 'pause', duration: 200 },
+          { type: 'pointerMove', duration: 1000, origin: 'viewport', x: endX2, y: endY2 },
+          { type: 'pointerUp', button: 0 }
+        ]
+      }
+    ]);
+  }
+
+  /**
+   * Performs a drag gesture from (startX, startY) to (endX, endY).
+   */
+  async drag(startX, startY, endX, endY, fingerId = 1) {
+    await this.driver.performActions([{
+      type: 'pointer', id: `finger${fingerId}`, parameters: { pointerType: 'touch' },
+      actions: [
+        { type: 'pointerMove', duration: 0, x: startX, y: startY },
+        { type: 'pointerDown', button: 0 },
+        { type: 'pause', duration: 500 },
+        { type: 'pointerMove', duration: 1500, origin: 'viewport', x: endX, y: endY },
+        { type: 'pointerUp', button: 0 }
+      ]
+    }]);
+  }
 }
 
 module.exports = { GesturesPage };
