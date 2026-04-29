@@ -44,6 +44,14 @@ class GesturesPage extends BasePage {
     this.toastMsg = (text) => this.isAndroid 
       ? `android=new UiSelector().descriptionContains("${text}")` 
       : `~toast-${text}`;
+
+    this.notificationMsg = (text) => this.isAndroid
+      ? `android=new UiSelector().description("${text}")`
+      : `~notification-${text}`;
+
+    this.optionCopy = this.isAndroid ? 'android=new UiSelector().description("Copy")' : '~option-copy';
+    this.optionShare = this.isAndroid ? 'android=new UiSelector().description("Share")' : '~option-share';
+    this.optionDelete = this.isAndroid ? 'android=new UiSelector().description("Delete")' : '~option-delete';
   }
 
   async waitForPageLoad() {

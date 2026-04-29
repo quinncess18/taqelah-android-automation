@@ -166,4 +166,51 @@ test.describe('Navigation - Gestures Interaction Suite (02)', () => {
         expect(await originalItem.isDisplayed()).toBe(true);
     }
   });
+
+  test('TC-M04: should verify Long Press options and notification feedback', async ({ driver }) => {
+    // Picking up from TC-M03: Already on Gestures Demo page and centered on Long Press area.
+
+    const longPressCard = await driver.$(gesturesPage.longPressBtn);
+    await longPressCard.waitForDisplayed({ timeout: 5000 });
+
+    const scenarios = [
+      { option: gesturesPage.optionCopy, expected: 'Copied!' },
+      { option: gesturesPage.optionShare, expected: 'Shared!' },
+      { option: gesturesPage.optionDelete, expected: 'Deleted!' }
+    ];
+
+    for (const scenario of scenarios) {
+      // Long press the card
+      const location = await longPressCard.getLocation();
+      const size = await longPressCard.getSize();
+      const centerX = Math.round(location.x + size.width * 0.5);
+      const centerY = Math.round(location.y + size.height * 0.5);
+
+      await driver.performActions([{
+        type: 'pointer', id: 'finger1', parameters: { pointerType: 'touch' },
+        actions: [
+          { type: 'pointerMove', duration: 0, x: centerX, y: centerY },
+          { type: 'pointerDown', button: 0 },
+          { type: 'pause', duration: 2000 },
+          { type: 'pointerUp', button: 0 }
+        ]
+      }]);
+
+      // Select option
+      const optionBtn = await driver.$(scenario.option);
+      await optionBtn.waitForDisplayed({ timeout: 5000 });
+      await optionBtn.click();
+
+      // Verify notification message
+      const notification = await driver.$(gesturesPage.notificationMsg(scenario.expected));
+      await notification.waitForDisplayed({ timeout: 5000 });
+      expect(await notification.isDisplayed()).toBe(true);
+      
+      await driver.pause(1000);
+    }
+
+    // Return to Homepage
+    await (await driver.$(gesturesPage.backBtn)).click();
+    await landingPage.waitForPageLoad();
+  });
 });
