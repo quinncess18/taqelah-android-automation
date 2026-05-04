@@ -27,6 +27,7 @@ appium.log
 SESSION_HISTORY.md
 GEMINI.md
 CLAUDE.md
+.clinerules
 plans/
 
 # Test Artifacts

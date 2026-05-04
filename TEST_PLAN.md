@@ -46,6 +46,9 @@ Defines the test coverage and verification strategy for the Taqelah mobile appli
 | **TC-M06** | Long-press popup with all three option interactions | Pointer + Toast | ✅ | ✅ |
 | **TC-M07** | Double-tap to zoom + pan canvas, verify content via pixel scan | mobile:doubleClickGesture | ✅ | ✅ |
 | **TC-M08** | Pinch to zoom + full page reset verification | Multi-finger Pointer | ✅ | ✅ |
+| **TC-W01** | WebView opens and displays the Taqelah website correctly | In-App Browser | ✅ | ✅ |
+| **TC-W02** | Navigate to a new URL (example.com) using the Go button | URL Navigation | ✅ | ✅ |
+| **TC-W03** | WebView Back returns to the app with state preserved | State Preservation | ✅ | ✅ |
 
 > **Tablet-specific implementations** (phone path is byte-identical to before):
 > - `getPinchCenterBrightness` uses a dark-pixel count across the full canvas on tablet (sparse icons in a wide canvas defeat a 3×3 brightness average).
