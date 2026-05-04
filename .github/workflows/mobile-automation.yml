@@ -53,7 +53,14 @@ jobs:
           disable-animations: true
           script: |
             adb install apps/DemoApp-v1.0.0.apk
-            CI=true DEVICE_COUNT=1 npm test
+            CI=true \
+              DEVICE_COUNT=1 \
+              DEVICE_0_UDID=emulator-5554 \
+              DEVICE_0_NAME="Pixel 8 (Local)" \
+              DEVICE_0_PLATFORM=android \
+              DEVICE_0_SYSTEM_PORT=8200 \
+              DEVICE_0_CHROMEDRIVER_PORT=9515 \
+              npm test
 
       - name: Upload Report
         uses: actions/upload-artifact@v4
@@ -61,6 +68,14 @@ jobs:
         with:
           name: playwright-report-android
           path: playwright-report/
+          retention-days: 30
+
+      - name: Upload Test Artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-android
+          path: test-results/
           retention-days: 30
 
 # iOS Infrastructure (Ready for future use)
