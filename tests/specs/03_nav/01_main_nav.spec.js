@@ -1,68 +1,100 @@
 // @ts-check
 const { test, expect } = require('../../../fixtures/appFixture');
-const { LoginPage } = require('../../pages/LoginPage');
 const { CatalogLandingPage } = require('../../pages/CatalogLandingPage');
 const { NavMenuPage } = require('../../pages/NavMenuPage');
 const { CartPage } = require('../../pages/CartPage');
 const { AboutPage } = require('../../pages/AboutPage');
 
-test.describe('Navigation - Main Store Routing (01)', () => {
-  let loginPage;
+test.describe('Navigation - Main Store Routing (TC-M01-M03)', () => {
   let landingPage;
   let navMenu;
   let cartPage;
   let aboutPage;
 
   test.beforeAll(async ({ driver }) => {
-    loginPage = new LoginPage(driver);
     landingPage = new CatalogLandingPage(driver);
     navMenu = new NavMenuPage(driver);
     cartPage = new CartPage(driver);
     aboutPage = new AboutPage(driver);
 
-    // SELF-HEALING: Ensure we are logged in and on the Homepage
-    const onLoginScreen = await driver.$(loginPage.usernameField).isDisplayed();
-    if (onLoginScreen) {
-        await loginPage.login(null, loginPage.defaultPass);
-        await landingPage.waitForPageLoad();
+    // SELF-HEALING: Return to Home if deep-linked
+    let onHome = await landingPage.isVisible(landingPage.shopAllBtn);
+    let retryCount = 0;
+    while (!onHome && retryCount < 3) {
+      await driver.back();
+      await driver.pause(1000);
+      onHome = await landingPage.isVisible(landingPage.shopAllBtn);
+      retryCount++;
     }
   });
 
-  test('TC-M01: should verify Routing and Functionality for Home, Cart, and About', async ({ driver }) => {
-    // 1. Home Link
+  test('TC-M01: should verify Nav Menu default state and Home routing', async ({ driver }) => {
+    await navMenu.open();
+
+    // Above-fold: primary nav items and section header visible
+    expect(await navMenu.isVisible(navMenu.userProfile)).toBe(true);
+    expect(await navMenu.isVisible(navMenu.navHome)).toBe(true);
+    expect(await navMenu.isVisible(navMenu.navCart)).toBe(true);
+    expect(await navMenu.isVisible(navMenu.navAbout)).toBe(true);
+    expect(await navMenu.isVisible(navMenu.testScreensHeader)).toBe(true);
+    expect(await navMenu.isVisible(navMenu.navGestures)).toBe(true);
+
+    // Below-fold: scroll to each item in order to avoid overshooting
+    await navMenu.scrollToItem(navMenu.darkModeToggle);
+    expect(await navMenu.isVisible(navMenu.darkModeToggle)).toBe(true);
+    expect(await navMenu.isDarkModeActive()).toBe(false);
+    await navMenu.scrollToItem(navMenu.logoutBtn);
+    expect(await navMenu.isVisible(navMenu.logoutBtn)).toBe(true);
+
+    // Close drawer and navigate Home
+    await driver.back();
     await navMenu.open();
     await navMenu.navigateTo(navMenu.navHome);
-    expect(await (await driver.$(navMenu.demoAppTitle)).isDisplayed()).toBe(true);
+    expect(await landingPage.isVisible(landingPage.title)).toBe(true);
+    expect(await landingPage.isVisible(landingPage.shopAllBtn)).toBe(true);
+  });
 
-    // 2. Cart Link
+  test('TC-M02: should verify Cart routing and Empty state', async ({ driver }) => {
     await navMenu.open();
     await navMenu.navigateTo(navMenu.navCart);
     await cartPage.waitForPageLoad();
-    expect(await (await driver.$(cartPage.cartTitle)).isDisplayed()).toBe(true);
-    
-    await (await driver.$(cartPage.backBtn)).click();
-    await landingPage.waitForPageLoad();
+    expect(await cartPage.isVisible(cartPage.cartTitle)).toBe(true);
 
-    // 3. About Link (Deep Functional Audit)
+    await cartPage.deviceBack();
+    await landingPage.waitForPageLoad();
+  });
+
+  test('TC-M03: should verify About routing, Content Integrity, and Dark Mode toggle', async ({ driver }) => {
     await navMenu.open();
     await navMenu.navigateTo(navMenu.navAbout);
     await aboutPage.waitForPageLoad();
-    
-    // Header & Bottom Verification
-    expect(await (await driver.$(aboutPage.title)).isDisplayed()).toBe(true);
-    await aboutPage.scrollToBottom();
-    expect(await (await driver.$(aboutPage.footerUrl)).isDisplayed()).toBe(true);
 
-    // Visual Theme Toggle
-    const lightModeBase64 = await driver.takeScreenshot();
-    await (await driver.$(aboutPage.darkModeSwitch)).click();
-    await driver.pause(1500); 
-    const darkModeBase64 = await driver.takeScreenshot();
-    expect(darkModeBase64).not.toBe(lightModeBase64); 
-    
-    // Revert and Return Home
-    await (await driver.$(aboutPage.darkModeSwitch)).click();
-    await (await driver.$(aboutPage.backBtn)).click();
+    // Above-fold content integrity
+    expect(await aboutPage.isVisible(aboutPage.title)).toBe(true);
+    expect(await aboutPage.isVisible(aboutPage.subtitle)).toBe(true);
+    expect(await aboutPage.isVisible(aboutPage.version)).toBe(true);
+    expect(await aboutPage.isVisible(aboutPage.description)).toBe(true);
+    expect(await aboutPage.isVisible(aboutPage.featureList)).toBe(true);
+
+    // Below-fold content integrity
+    await aboutPage.scrollToBottom();
+    expect(await aboutPage.isVisible(aboutPage.footerUrl)).toBe(true);
+    expect(await aboutPage.isVisible(aboutPage.footerFlutter)).toBe(true);
+
+    // Dark Mode: verify toggle state and visual theme change
+    expect(await aboutPage.isDarkModeActive()).toBe(false);
+    const lightColor = await aboutPage.sampleThemeColor();
+
+    await aboutPage.toggleDarkMode();
+    expect(await aboutPage.isDarkModeActive()).toBe(true);
+    const darkColor = await aboutPage.sampleThemeColor();
+    expect(darkColor.r + darkColor.g + darkColor.b).toBeLessThan(lightColor.r + lightColor.g + lightColor.b);
+
+    // Restore light mode
+    await aboutPage.toggleDarkMode();
+    expect(await aboutPage.isDarkModeActive()).toBe(false);
+
+    await aboutPage.deviceBack();
     await landingPage.waitForPageLoad();
   });
 });

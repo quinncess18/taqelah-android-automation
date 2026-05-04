@@ -2,166 +2,424 @@
 const { BasePage } = require('./BasePage');
 
 /**
- * GesturesPage — POM for the Gesture interaction screen.
- * Handles Swipe, Drag, and other touch-based test scenarios.
+ * GesturesPage — Intelligent POM for the Gesture interaction screen.
+ * Handles all complex physical interactions (Swipe, Drag, Zoom, Long Press).
+ * Encapsulates all pointer math and W3C actions for universal Android/iOS support.
  */
 class GesturesPage extends BasePage {
   constructor(driver) {
     super(driver);
-    this.title = this.isAndroid ? 'android=new UiSelector().description("Gesture Demo")' : '~Gesture Demo';
-    this.backBtn = this.isAndroid ? 'android=new UiSelector().description("Back")' : '~back-button';
 
-    // Swipe Section
-    this.swipeHeader = this.isAndroid ? 'android=new UiSelector().description("Swipe Cards")' : '~swipe-header';
-    this.swipeCard = (index) => this.isAndroid 
-      ? `android=new UiSelector().description("Swipe Card ${index}")` 
+    // Page Title
+    this.title = this.isAndroid ? 'android=new UiSelector().description("Gesture Demo")' : '~Gesture Demo';
+
+    // Swipe Cards Section
+    this.sectionSwipeCards = this.isAndroid ? 'android=new UiSelector().description("Swipe Cards")' : '~section-swipe-cards';
+    this.instructionSwipe = this.isAndroid ? 'android=new UiSelector().description("Swipe right to favorite, left to delete")' : '~instruction-swipe';
+    this.swipeCard = (index) => this.isAndroid
+      ? `android=new UiSelector().description("Swipe Card ${index}")`
       : `~swipe-card-${index}`;
 
     // Drag & Drop Section
-    this.dragHeader = this.isAndroid ? 'android=new UiSelector().description("Drag & Drop Reorder")' : '~drag-header';
-    this.dragItem = (index) => this.isAndroid 
-      ? `android=new UiSelector().descriptionContains("Drag Item ${index}")` 
-      : `~drag-item-${index}`;
+    this.sectionDragDrop = this.isAndroid ? 'android=new UiSelector().description("Drag & Drop Reorder")' : '~section-drag-drop';
+    this.instructionDragDrop = this.isAndroid ? 'android=new UiSelector().description("Long press and drag to reorder")' : '~instruction-drag-drop';
+    this.dragItem = (id) => this.isAndroid
+      ? `android=new UiSelector().descriptionContains("Drag Item ${id}")`
+      : `~drag-item-${id}`;
     this.dragItemExact = (position, id) => this.isAndroid
       ? `android=new UiSelector().descriptionContains("${position}\nDrag Item ${id}")`
       : `~drag-item-${id}-pos-${position}`;
+    // Finds whatever card is currently occupying a given position slot
+    this.dragSlot = (position) => this.isAndroid
+      ? `android=new UiSelector().descriptionContains("${position}\nDrag Item")`
+      : `~drag-slot-${position}`;
 
     // Long Press Section
-    this.longPressBtn = this.isAndroid 
-      ? 'android=new UiSelector().description("Long press me for options")' 
+    this.sectionLongPress = this.isAndroid ? 'android=new UiSelector().description("Long Press")' : '~section-long-press';
+    this.instructionLongPress = this.isAndroid ? 'android=new UiSelector().description("Long press the card below")' : '~instruction-long-press';
+    this.longPressBtn = this.isAndroid
+      ? 'android=new UiSelector().description("Long press me for options")'
       : '~long-press-area';
 
-    // Tap/Zoom Sections
-    this.doubleTapArea = this.isAndroid 
-      ? 'android=new UiSelector().description("Double Tap to Zoom")' 
+    // Double Tap Section
+    this.doubleTapArea = this.isAndroid
+      ? 'android=new UiSelector().description("Double Tap to Zoom")'
       : '~double-tap-area';
 
-    this.pinchArea = this.isAndroid 
-      ? 'android=new UiSelector().description("Pinch to Zoom")' 
+    // Pinch to Zoom Section
+    this.pinchArea = this.isAndroid
+      ? 'android=new UiSelector().description("Pinch to Zoom")'
       : '~pinch-area';
 
-    // Popup/Toasts
-    this.toastMsg = (text) => this.isAndroid 
-      ? `android=new UiSelector().descriptionContains("${text}")` 
+    // Toast & Long Press Options
+    this.toastMsg = (text) => this.isAndroid
+      ? `android=new UiSelector().descriptionContains("${text}")`
       : `~toast-${text}`;
-
-    this.notificationMsg = (text) => this.isAndroid
-      ? `android=new UiSelector().description("${text}")`
-      : `~notification-${text}`;
-
     this.optionCopy = this.isAndroid ? 'android=new UiSelector().description("Copy")' : '~option-copy';
     this.optionShare = this.isAndroid ? 'android=new UiSelector().description("Share")' : '~option-share';
     this.optionDelete = this.isAndroid ? 'android=new UiSelector().description("Delete")' : '~option-delete';
+    this.optionDismiss = this.isAndroid ? 'android=new UiSelector().description("Dismiss menu")' : '~option-dismiss';
   }
 
   async waitForPageLoad() {
     await this.waitForDisplayed(this.title);
   }
 
-  /**
-   * Scrolls down to center the Drag & Drop section in the viewport.
-   * Uses fast flicks starting from the safe middle of the screen to prevent accidentally long-pressing items.
-   */
-  async scrollToDragSection() {
-    const { width, height } = await this.driver.getWindowRect();
-    const safeX = Math.round(width * 0.5);
-    const isTablet = width > 1200;
-    
-    // Start at 60% (above the Drag items to avoid accidentally picking them up)
-    const startY = Math.round(height * 0.6);
-    
-    // Tablet needs a ~45% screen delta (60% to 15%) to perfectly frame all 5 items.
-    // Phone needs a ~35% screen delta (60% to 25%).
-    const endY = isTablet ? Math.round(height * 0.15) : Math.round(height * 0.25);
-    
-    await this.swipe(safeX, startY, safeX, endY, 400);
-    await this.driver.pause(1000);
+  async goBack() {
+    const btn = await this.driver.$(this.backBtn);
+    await btn.click();
   }
 
   /**
-   * Scrolls to center the Zoom sections in the viewport.
-   * Follows a safe path starting from 75% to avoid sensitive areas like Long Press.
+   * Performs a long-press swipe (Favorite/Delete).
+   * Encapsulates all coordinate math.
    */
-  async scrollToZoomSection() {
-    const { width, height } = await this.driver.getWindowRect();
-    const centerX = width / 2;
-    // Scroll 1: Safe top-half swipe
-    await this.swipe(centerX, height * 0.4, centerX, height * 0.1, 500);
-    await this.driver.pause(1000);
-    // Scroll 2: Start lower to avoid any intermediate long-press areas
-    await this.swipe(centerX, height * 0.75, centerX, height * 0.45, 500);
-    await this.driver.pause(1000);
-    // Scroll 3: Final centering
-    await this.swipe(centerX, height * 0.75, centerX, height * 0.45, 500);
-    await this.driver.pause(1000);
-  }
+  async swipeCardSide(index, direction) {
+    const card = await this.driver.$(this.swipeCard(index));
+    const loc = await card.getLocation();
+    const sz = await card.getSize();
 
-  /**
-   * Performs a double tap on the specified coordinates.
-   */
-  async doubleTap(x, y) {
+    const centerY = Math.round(loc.y + sz.height * 0.5);
+    const startX = direction === 'right' ? Math.round(loc.x + sz.width * 0.2) : Math.round(loc.x + sz.width * 0.8);
+    const endX = direction === 'right' ? Math.round(loc.x + sz.width * 0.9) : Math.round(loc.x + sz.width * 0.1);
+
     await this.driver.performActions([{
       type: 'pointer', id: 'finger1', parameters: { pointerType: 'touch' },
       actions: [
-        { type: 'pointerMove', duration: 0, x, y },
+        { type: 'pointerMove', duration: 0, x: startX, y: centerY },
         { type: 'pointerDown', button: 0 },
-        { type: 'pointerUp', button: 0 },
-        { type: 'pause', duration: 100 },
-        { type: 'pointerDown', button: 0 },
+        { type: 'pause', duration: 600 },
+        { type: 'pointerMove', duration: 500, origin: 'viewport', x: endX, y: centerY },
         { type: 'pointerUp', button: 0 }
       ]
     }]);
   }
 
+  async reorderItem(sourceSelector, targetSelector) {
+     const source = await this.driver.$(sourceSelector);
+     const target = await this.driver.$(targetSelector);
+
+     const sLoc = await source.getLocation();
+     const sSz = await source.getSize();
+     const tLoc = await target.getLocation();
+     const tSz = await target.getSize();
+
+     const startX = Math.round(sLoc.x + sSz.width * 0.5);
+     const startY = Math.round(sLoc.y + sSz.height * 0.5);
+     const endY = Math.round(tLoc.y + tSz.height * 0.5);
+
+     await this.driver.performActions([{
+       type: 'pointer', id: 'finger1', parameters: { pointerType: 'touch' },
+       actions: [
+         { type: 'pointerMove', duration: 0, x: startX, y: startY },
+         { type: 'pointerDown', button: 0 },
+         { type: 'pause', duration: 1500 },
+         { type: 'pointerMove', duration: 50, origin: 'viewport', x: startX, y: startY - 20 },
+         { type: 'pointerMove', duration: 700, origin: 'viewport', x: startX, y: endY },
+         { type: 'pause', duration: 200 },
+         { type: 'pointerUp', button: 0 }
+       ]
+     }]);
+   }
+
   /**
-   * Performs a pinch open gesture centered at (x, y).
+   * Encapsulated Long Press
    */
-  async pinchOpen(x, y) {
-    const startX1 = x - 10;
-    const startX2 = x + 10;
-    const endX1 = x - 200;
-    const endX2 = x + 200;
-    const endY1 = y - 200;
-    const endY2 = y + 200;
+  async longPress(selector) {
+    const el = await this.driver.$(selector);
+    const loc = await el.getLocation();
+    const sz = await el.getSize();
+    const cX = Math.round(loc.x + sz.width * 0.5);
+    const cY = Math.round(loc.y + sz.height * 0.5);
+
+    await this.driver.performActions([{
+      type: 'pointer', id: 'finger1', parameters: { pointerType: 'touch' },
+      actions: [
+        { type: 'pointerMove', duration: 0, x: cX, y: cY },
+        { type: 'pointerDown', button: 0 },
+        { type: 'pause', duration: 2000 },
+        { type: 'pointerUp', button: 0 }
+      ]
+    }]);
+  }
+
+  async verifyToast(text) {
+    const toast = await this.driver.$(this.toastMsg(text));
+    await toast.waitForDisplayed({ timeout: 1600 });
+    return await toast.isDisplayed();
+  }
+
+  async tapOption(label) {
+    const selector = label === 'Copy' ? this.optionCopy :
+                     label === 'Share' ? this.optionShare :
+                     this.optionDelete;
+    const btn = await this.driver.$(selector);
+    await btn.waitForDisplayed({ timeout: 5000 });
+    await btn.click();
+  }
+
+  // Samples a cross-pattern at canvas center after pan and returns true if the hanger is present.
+  // Canvas bounds are computed dynamically from label bottom to Pinch section top.
+  async verifyCanvasHasContent() {
+    const { PNG } = require('pngjs');
+
+    // Wait for pan animation to fully settle before sampling pixels
+    await this.driver.pause(this.settlePause);
+
+    const label = await this.driver.$(this.doubleTapArea);
+    const labelLoc = await label.getLocation();
+    const labelSz = await label.getSize();
+    // Clamp canvasTop: label may be off-screen on tablet after scrolling to pinchArea
+    const canvasTop = Math.max(labelLoc.y + labelSz.height, 50);
+
+    const pinch = await this.driver.$(this.pinchArea);
+    const pinchLoc = await pinch.getLocation();
+    const canvasBottom = pinchLoc.y - 20;
+
+    const cx = Math.round(labelLoc.x + labelSz.width * 0.5);
+    const cy = Math.round((canvasTop + canvasBottom) / 2);
+    const { width: screenWidth } = await this.driver.getWindowRect();
+    const isTablet = screenWidth > 1200;
+
+    const base64 = await this.driver.takeScreenshot();
+    const png = PNG.sync.read(Buffer.from(base64, 'base64'));
+
+    let minBrightness = 255;
+    if (isTablet) {
+      // Tablet: panCanvas moves the icon by ~2*0.35*sz.width (~1748px), pushing it well
+      // outside a small cross at canvas center. Scan a dense grid across the whole canvas
+      // so we catch the icon wherever pan has placed it.
+      const stepX = Math.max(40, Math.round(labelSz.width / 30));
+      const stepY = Math.max(40, Math.round((canvasBottom - canvasTop) / 10));
+      for (let y = canvasTop + 10; y < canvasBottom - 10; y += stepY) {
+        for (let x = labelLoc.x + 10; x < labelLoc.x + labelSz.width - 10; x += stepX) {
+          const i = (png.width * y + x) * 4;
+          const brightness = Math.round((png.data[i] + png.data[i + 1] + png.data[i + 2]) / 3);
+          if (brightness < minBrightness) minBrightness = brightness;
+        }
+      }
+    } else {
+      // Phone: small cross at canvas center (proven working).
+      const r = 50;
+      for (const [x, y] of [[cx, cy], [cx - r, cy], [cx + r, cy], [cx, cy - r], [cx, cy + r]]) {
+        const i = (png.width * y + x) * 4;
+        const brightness = Math.round((png.data[i] + png.data[i + 1] + png.data[i + 2]) / 3);
+        if (brightness < minBrightness) minBrightness = brightness;
+      }
+    }
+
+    return minBrightness < 180;
+  }
+
+  // Pans NW across the double-tap canvas. Only moves content when zoomed in.
+  // Tablet runs twice (larger canvas, image drifts further); mobile runs once.
+  async panCanvas() {
+    const label = await this.driver.$(this.doubleTapArea);
+    const loc = await label.getLocation();
+    const sz = await label.getSize();
+    const pinch = await this.driver.$(this.pinchArea);
+    const pinchLoc = await pinch.getLocation();
+    const { width } = await this.driver.getWindowRect();
+    const isTablet = width > 1200;
+
+    // On tablet, doubleTapArea may scroll off-screen after doubleTapZoomCanvas centers pinchArea.
+    // Clamp canvasTop to 50px so pan always lands inside the visible canvas area.
+    const canvasTop = Math.max(loc.y + sz.height, 50);
+    const canvasY = Math.round(canvasTop + (pinchLoc.y - canvasTop) * 0.5);
+    const hDist = Math.round(sz.width * (isTablet ? 0.35 : 0.4));
+    const vDist = Math.round(sz.width * (isTablet ? 0.05 : 0.2));
+
+    await this.swipe(
+      Math.round(loc.x + sz.width * 0.5 + hDist), Math.round(canvasY + vDist),
+      Math.round(loc.x + sz.width * 0.5 - hDist), Math.round(canvasY - vDist),
+      400
+    );
+  }
+
+  // Returns a metric (universal across phone/tablet) that reliably differs before/after pinch.
+  // Phone: average brightness across a 3×3 grid in the canvas (proven working).
+  // Tablet: count of "dark" pixels (likely icon pixels, brightness < 180) across a dense
+  //   scan of the entire canvas region. The tablet canvas is much wider than the phone's,
+  //   so the icon occupies a tiny fraction of any sparse grid — averaging hides changes.
+  //   Counting dark pixels across the full canvas catches icon-area growth from the zoom.
+  async getPinchCenterBrightness() {
+    await this.driver.pause(this.settlePause);
+    const { PNG } = require('pngjs');
+    const { width: screenWidth, height: screenHeight } = await this.driver.getWindowRect();
+    const isTablet = screenWidth > 1200;
+
+    const label = await this.driver.$(this.pinchArea);
+    const loc = await label.getLocation();
+    const sz = await label.getSize();
+    const canvasTop = loc.y + sz.height;
+    const canvasBottom = screenHeight - 50;
+    const canvasHeight = canvasBottom - canvasTop;
+
+    const base64 = await this.driver.takeScreenshot();
+    const png = PNG.sync.read(Buffer.from(base64, 'base64'));
+
+    if (isTablet) {
+      // Dense scan: every 10px in both axes across the whole canvas.
+      let darkCount = 0;
+      for (let y = canvasTop; y < canvasBottom; y += 10) {
+        for (let x = loc.x; x < loc.x + sz.width; x += 10) {
+          const i = (png.width * y + x) * 4;
+          const brightness = Math.round((png.data[i] + png.data[i + 1] + png.data[i + 2]) / 3);
+          if (brightness < 180) darkCount++;
+        }
+      }
+      return darkCount;
+    }
+
+    // Phone (unchanged): 3×3 brightness average.
+    const cols = [0.25, 0.5, 0.75].map(p => Math.round(loc.x + sz.width * p));
+    const rows = [0.25, 0.5, 0.75].map(p => Math.round(canvasTop + canvasHeight * p));
+    let total = 0;
+    for (const x of cols) {
+      for (const y of rows) {
+        const i = (png.width * y + x) * 4;
+        total += Math.round((png.data[i] + png.data[i + 1] + png.data[i + 2]) / 3);
+      }
+    }
+    return Math.round(total / 9);
+  }
+
+  /**
+   * Double taps the zoom canvas anchored below the "Double Tap to Zoom" label.
+   * The label is clickable="false" — Flutter handles gestures at its own layer.
+   * Uses W3C pointer actions with tight inter-tap timing to reach Flutter's recognizer.
+   */
+  async doubleTapZoomCanvas() {
+    const { width } = await this.driver.getWindowRect();
+
+    // Tablet: label is visible but canvas is cropped — scroll until Pinch header appears,
+    // which guarantees the full canvas above it is in view.
+    if (width > 1200) {
+      await this.scrollToSection(this.pinchArea);
+    }
+
+    // Read location AFTER any scroll so tap coordinates reflect the current screen position
+    const label = await this.driver.$(this.doubleTapArea);
+    const loc = await label.getLocation();
+    const sz = await label.getSize();
+    const pinch = await this.driver.$(this.pinchArea);
+    const pinchLoc = await pinch.getLocation();
+
+    const tapX = Math.round(loc.x + sz.width * 0.5);
+    // Canvas centre: midpoint between label bottom and pinch section top
+    const tapY = Math.round((loc.y + sz.height + pinchLoc.y) / 2);
+
+    // Single sequence — UiAutomator2 handles the inter-tap pause internally,
+    // keeping both taps within Flutter's 300ms double-tap window regardless of round-trip latency.
+    await this.driver.performActions([{
+      type: 'pointer', id: 'finger1', parameters: { pointerType: 'touch' },
+      actions: [
+        { type: 'pointerMove', duration: 0, x: tapX, y: tapY },
+        { type: 'pointerDown', button: 0 },
+        { type: 'pointerUp', button: 0 },
+        { type: 'pause', duration: 100 },
+        { type: 'pointerMove', duration: 0, x: tapX, y: tapY },
+        { type: 'pointerDown', button: 0 },
+        { type: 'pointerUp', button: 0 },
+      ]
+    }]);
+    await this.driver.releaseActions();
+    await this.driver.pause(this.settlePause);
+  }
+
+  async pinch(selector) {
+    const label = await this.driver.$(selector);
+    const loc = await label.getLocation();
+    const sz = await label.getSize();
+    const { width: screenWidth, height: screenHeight } = await this.driver.getWindowRect();
+    const isTablet = screenWidth > 1200;
+
+    const canvasTop = loc.y + sz.height;
+    const canvasHeight = screenHeight - canvasTop - 50;
+    const cX = Math.round(loc.x + sz.width * 0.5);
+    const cY = Math.round(canvasTop + canvasHeight * 0.5);
+    const offset = Math.round(sz.width * (isTablet ? 0.40 : 0.30));
 
     await this.driver.performActions([
       {
         type: 'pointer', id: 'finger1', parameters: { pointerType: 'touch' },
         actions: [
-          { type: 'pointerMove', duration: 0, x: startX1, y },
+          { type: 'pointerMove', duration: 0, x: cX - offset, y: cY },
           { type: 'pointerDown', button: 0 },
-          { type: 'pause', duration: 200 },
-          { type: 'pointerMove', duration: 1000, origin: 'viewport', x: endX1, y: endY1 },
-          { type: 'pointerUp', button: 0 }
+          { type: 'pointerMove', duration: 800, origin: 'viewport', x: cX - offset * 2, y: cY },
+          { type: 'pointerUp', button: 0 },
         ]
       },
       {
         type: 'pointer', id: 'finger2', parameters: { pointerType: 'touch' },
         actions: [
-          { type: 'pointerMove', duration: 0, x: startX2, y },
+          { type: 'pointerMove', duration: 0, x: cX + offset, y: cY },
           { type: 'pointerDown', button: 0 },
-          { type: 'pause', duration: 200 },
-          { type: 'pointerMove', duration: 1000, origin: 'viewport', x: endX2, y: endY2 },
-          { type: 'pointerUp', button: 0 }
+          { type: 'pointerMove', duration: 800, origin: 'viewport', x: cX + offset * 2, y: cY },
+          { type: 'pointerUp', button: 0 },
         ]
       }
     ]);
+    await this.driver.pause(this.settlePause);
   }
 
   /**
-   * Performs a drag gesture from (startX, startY) to (endX, endY).
+   * Scrolls down until the target section header is visible.
+   * Uses mobile: scrollGesture constrained to a 20px strip at the far left edge,
+   * avoiding the Drag & Drop canvas which spans x=32..2528 on tablet (nearly full width).
    */
-  async drag(startX, startY, endX, endY, fingerId = 1) {
-    await this.driver.performActions([{
-      type: 'pointer', id: `finger${fingerId}`, parameters: { pointerType: 'touch' },
-      actions: [
-        { type: 'pointerMove', duration: 0, x: startX, y: startY },
-        { type: 'pointerDown', button: 0 },
-        { type: 'pause', duration: 500 },
-        { type: 'pointerMove', duration: 1500, origin: 'viewport', x: endX, y: endY },
-        { type: 'pointerUp', button: 0 }
-      ]
-    }]);
+  async scrollToSection(selector) {
+    let centered = await this.isInsideViewport(selector);
+    let attempts = 0;
+    while (!centered && attempts < 8) {
+      const { width, height } = await this.driver.getWindowRect();
+      const isTablet = width > 1200;
+      if (this.isAndroid) {
+        await this.driver.execute('mobile: scrollGesture', {
+          left: 0, top: Math.round(height * 0.25),
+          width: 20, height: Math.round(height * 0.5),
+          direction: 'down', percent: isTablet ? 2.0 : 3.0,
+        });
+      } else {
+        // iOS: x=20 mirrors Android safe margin; verify canvas bounds when iOS testing begins
+        await this.swipe(20, Math.round(height * 0.6), 20, Math.round(height * 0.25), 400);
+      }
+      await this.driver.pause(500);
+      centered = await this.isInsideViewport(selector);
+      attempts++;
+    }
+  }
+
+  /**
+   * Scrolls to the Drag & Drop section only if the items are not already in view.
+   * After TC-M04 swipes all cards, the section floats up naturally — scrolling would overshoot.
+   * Tablet: after re-navigation the wider layout pushes drag items 4-5 below the fold.
+   * Bump the page down once by swiping in the white space gap between the Swipe section
+   * and Drag section — anchored to the bottom of swipeCard(5) so the gesture lands on
+   * empty space, not on any draggable card or canvas.
+   */
+  async scrollToDragSection() {
+    const { width, height } = await this.driver.getWindowRect();
+    const isTablet = width > 1200;
+
+    if (isTablet) {
+      const lastVisible = await this.isInsideViewport(this.dragItem(5));
+      if (!lastVisible) {
+        const lastSwipeCard = await this.driver.$(this.swipeCard(5));
+        const swipeLoc = await lastSwipeCard.getLocation();
+        const swipeSz = await lastSwipeCard.getSize();
+        const gapY = swipeLoc.y + swipeSz.height + 30;
+        const centerX = Math.round(width * 0.5);
+        await this.swipe(centerX, gapY, centerX, Math.round(height * 0.15), 800);
+        await this.driver.pause(800);
+      }
+    } else {
+      const alreadyVisible = await this.isInsideViewport(this.dragItem(1));
+      if (!alreadyVisible) {
+        await this.scrollToSection(this.dragItem(1));
+        await this.driver.pause(500);
+      }
+    }
   }
 }
 

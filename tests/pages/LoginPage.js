@@ -53,11 +53,18 @@ class LoginPage extends BasePage {
     // Universal Truths (Demo Credentials)
     this.defaultUser = 'emma@demoapp.com';
     this.defaultPass = '10203040';
+
+    // Error message strings (match app accessibility descriptions)
+    this.errUsernameRequired = 'Please enter your username';
+    this.errPasswordRequired = 'Please enter your password';
+    this.errInvalidCreds = 'Invalid username or password';
   }
 
   async waitForPageLoad() {
+    const { width } = await this.driver.getWindowRect();
+    if (width > 1200) await this.resetToTop();
     await this.waitForDisplayed(this.title);
-    await this.driver.pause(1000); 
+    await this.driver.pause(1000);
   }
 
   /**
@@ -144,13 +151,25 @@ class LoginPage extends BasePage {
       await passEl.setValue(password);
     }
 
-    await this.driver.pause(500);
-    try {
-      if (await this.driver.isKeyboardShown()) {
-        this.isAndroid ? await this.driver.back() : await this.driver.hideKeyboard();
-        await this.driver.pause(1000); 
+    const { width } = await this.driver.getWindowRect();
+    if (width > 1200) {
+      if (username !== null || password !== null) {
+        if (this.isAndroid) {
+          // Back keyevent routes through Android IME framework — dismisses any
+          // input method (keyboard, panel, handwriting) before app navigation.
+          await this.driver.execute('mobile: shell', { command: 'input', args: ['keyevent', '4'] });
+        } else {
+          // iOS iPad: XCUITest keyboard dismiss path. Verify when iPad testing starts.
+          try { await this.driver.hideKeyboard(); } catch {}
+        }
+        await this.driver.pause(1500);
       }
-    } catch (e) {}
+    } else {
+      // NEUTRAL CLICK: Click the app title to unfocus and dismiss keyboard universally
+      const titleEl = await this.driver.$(this.title);
+      await titleEl.click();
+      await this.driver.pause(1000);
+    }
   }
 
   /**
@@ -161,23 +180,24 @@ class LoginPage extends BasePage {
     const passEl = await this.driver.$(this.passwordField);
     await passEl.addValue(password);
     
-    await this.driver.pause(500);
-    try {
-      if (await this.driver.isKeyboardShown()) {
-        this.isAndroid ? await this.driver.back() : await this.driver.hideKeyboard();
-        await this.driver.pause(1000); 
-      }
-    } catch (e) {}
+    // NEUTRAL CLICK: Click the app title to unfocus and dismiss keyboard universally
+    const titleEl = await this.driver.$(this.title);
+    await titleEl.click();
+    await this.driver.pause(1000); 
   }
 
   /**
    * Powerful cross-platform login engine.
    */
+  async submitLogin() {
+    const btn = await this.driver.$(this.loginButton);
+    await btn.waitForDisplayed({ timeout: 5000 });
+    await btn.click();
+  }
+
   async login(username, password) {
     await this.fillCredentials(username, password);
-    const btnEl = await this.driver.$(this.loginButton);
-    await btnEl.waitForDisplayed({ timeout: 5000 });
-    await btnEl.click();
+    await this.submitLogin();
   }
 
   /**
@@ -200,7 +220,9 @@ class LoginPage extends BasePage {
     try {
       const el = await this.driver.$(selector);
       await el.waitForDisplayed({ timeout: 8000 });
-      return await el.getAttribute('content-desc');
+      return this.isAndroid
+        ? await el.getAttribute('content-desc')
+        : await el.getAttribute('label');
     } catch (err) {
       return null;
     }

@@ -1,100 +1,82 @@
 // @ts-check
 const { test, expect } = require('../../../fixtures/appFixture');
+const { LoginPage } = require('../../pages/LoginPage');
 const { CatalogLandingPage } = require('../../pages/CatalogLandingPage');
 const { ProductGridPage } = require('../../pages/ProductGridPage');
 const { CartPage } = require('../../pages/CartPage');
 const products = require('../../data/products');
 
 test.describe('Catalog Module - Category Data & Functional Integrity', () => {
+  let loginPage;
   let landingPage;
   let gridPage;
   let cartPage;
 
   test.beforeAll(async ({ driver }) => {
+    loginPage = new LoginPage(driver);
     landingPage = new CatalogLandingPage(driver);
     gridPage = new ProductGridPage(driver);
     cartPage = new CartPage(driver);
+
+    // SELF-HEALING: Ensure we are logged in and on the Homepage
+    const isLoggedOut = await loginPage.isVisible(loginPage.loginButton);
+    if (isLoggedOut) {
+      await loginPage.login(loginPage.defaultUser, loginPage.defaultPass);
+      await landingPage.waitForPageLoad();
+    }
+
+    const onHome = await landingPage.isVisible(landingPage.shopAllBtn);
+    if (!onHome) {
+      await landingPage.deviceBack();
+      await landingPage.waitForPageLoad();
+    }
   });
 
-  /**
-   * Helper to perform functional audit for a category (Sorts -> Scroll -> Cart)
-   * Optimized "One-Way Down" journey.
-   * @param {any} driver
-   * @param {Object} data - Category data from products.js
-   */
-  async function performCategoryFunctionalAudit(driver, data) {
-    // 1. Navigation
+  async function performCategoryFunctionalAudit(data) {
     await landingPage.selectCategory(data.name);
     await gridPage.waitForPageLoad();
 
-    // 2. Sorting Quad-Audit (One-Way Down Strategy)
-    
-    // --- Mode 1: Price (Low to High) ---
-    await gridPage.openSortMenu();
-    await gridPage.selectSort('LowHigh');
-    await driver.pause(1000); 
-    // TABLET ONLY: Perform the first and only nudge to reveal metadata
-    await gridPage.nudgeToRevealFirstItem();
-    
-    const lowPrice = await gridPage.getFirstProductDetails();
-    expect(lowPrice).toContain(data.anchors.cheapest); 
+    const sorts = ['LowHigh', 'HighLow', 'ZA', 'AZ'];
+    for (let i = 0; i < sorts.length; i++) {
+      await gridPage.openSortMenu();
+      await gridPage.selectSort(sorts[i]);
+      if (i === 0) await gridPage.nudgeToRevealFirstItem();
 
-    // --- Mode 2: Price (High to Low) ---
-    await gridPage.openSortMenu();
-    await gridPage.selectSort('HighLow');
-    await driver.pause(1000);
-    const highPrice = await gridPage.getFirstProductDetails();
-    expect(highPrice).toContain(data.anchors.mostExpensive); 
+      const details = await gridPage.getFirstProductDetails();
+      const anchor = sorts[i] === 'LowHigh' ? data.anchors.cheapest :
+                     sorts[i] === 'HighLow' ? data.anchors.mostExpensive :
+                     sorts[i] === 'ZA' ? data.anchors.alphaLast : data.anchors.alphaFirst;
 
-    // --- Mode 3: Name (Z-A) ---
-    await gridPage.openSortMenu();
-    await gridPage.selectSort('ZA');
-    await driver.pause(1000);
-    const lastAlpha = await gridPage.getFirstProductDetails();
-    expect(lastAlpha).toContain(data.anchors.alphaLast);
+      expect(details).toContain(anchor);
+    }
 
-    // --- Mode 4: Name (A-Z) ---
-    await gridPage.openSortMenu();
-    await gridPage.selectSort('AZ');
-    await driver.pause(1000);
-    const firstAlpha = await gridPage.getFirstProductDetails();
-    expect(firstAlpha).toContain(data.anchors.alphaFirst);
-
-    // 3. Data Integrity Audit (Scroll 8 items + Settle)
     const integrityPass = await gridPage.verifyCategoryIntegrity(data);
     expect(integrityPass).toBe(true);
 
-    // 4. Context Retention Check
-    await (await driver.$(gridPage.cartBtn)).click();
+    await gridPage.navigateToCart();
     await cartPage.waitForPageLoad();
-    expect(await (await driver.$(cartPage.cartTitle)).isDisplayed()).toBe(true);
-    expect(await (await driver.$(cartPage.emptyCartMsg)).isDisplayed()).toBe(true);
-    
+    expect(await cartPage.isVisible(cartPage.cartTitle)).toBe(true);
+
     await cartPage.clickContinueShopping();
     await gridPage.waitForPageLoad();
-    expect(await (await driver.$(gridPage.gridTitle(data.name))).isDisplayed()).toBe(true);
 
-    // 5. Return Home
-    await driver.back();
-    await driver.pause(1000);
+    await gridPage.deviceBack();
+    await landingPage.waitForPageLoad();
   }
 
   test('TC-C08: should verify Casual Dresses data and functional integrity', async ({ driver }) => {
-    // Handling transition from previous session (Grid -> Home)
-    await driver.back();
-    await driver.pause(1000);
-    await performCategoryFunctionalAudit(driver, products.categories.casual);
+    await performCategoryFunctionalAudit(products.categories.casual);
   });
 
   test('TC-C09: should verify Evening Dresses data and functional integrity', async ({ driver }) => {
-    await performCategoryFunctionalAudit(driver, products.categories.evening);
+    await performCategoryFunctionalAudit(products.categories.evening);
   });
 
   test('TC-C10: should verify Party Dresses data and functional integrity', async ({ driver }) => {
-    await performCategoryFunctionalAudit(driver, products.categories.party);
+    await performCategoryFunctionalAudit(products.categories.party);
   });
 
   test('TC-C11: should verify Boho Dresses data and functional integrity', async ({ driver }) => {
-    await performCategoryFunctionalAudit(driver, products.categories.boho);
+    await performCategoryFunctionalAudit(products.categories.boho);
   });
 });

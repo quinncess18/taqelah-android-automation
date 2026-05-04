@@ -58,7 +58,7 @@ if (!hasEnvDevices) {
     {
       name: 'Pixel 8 (Local)',
       platform: 'android',
-      udid: 'emulator-5554',
+      udid: 'emulator-5556',
       systemPort: 8200,
       chromeDriverPort: 9515,
       testTimeout: 180000,
@@ -68,7 +68,7 @@ if (!hasEnvDevices) {
     {
       name: 'Pixel Tablet (Local)',
       platform: 'android',
-      udid: 'emulator-5556',
+      udid: 'emulator-5554',
       systemPort: 8201,
       chromeDriverPort: 9516,
       testTimeout: 180000,

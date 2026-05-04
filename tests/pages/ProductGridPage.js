@@ -43,12 +43,25 @@ class ProductGridPage extends BasePage {
       ? 'android=new UiSelector().className("android.widget.Button")' 
       : '~add-to-cart';
 
+    // Universal Item Selector for Audits
+    this.clickableItems = this.isAndroid
+      ? 'android=new UiSelector().className("android.widget.ImageView").clickable(true)'
+      : '~product-item';
+
     // Sort Menu Selectors
     this.sortTitle = this.isAndroid ? 'android=new UiSelector().description("Sort By")' : '~Sort By';
     this.sortOptionAZ = this.isAndroid ? 'android=new UiSelector().description("Name (A-Z)")' : '~Name (A-Z)';
     this.sortOptionZA = this.isAndroid ? 'android=new UiSelector().description("Name (Z-A)")' : '~Name (Z-A)';
     this.sortOptionPriceLowHigh = this.isAndroid ? 'android=new UiSelector().description("Price (Low-High)")' : '~Price (Low-High)';
     this.sortOptionPriceHighLow = this.isAndroid ? 'android=new UiSelector().description("Price (High-Low)")' : '~Price (High-Low)';
+
+    // First visible product card (instance 0)
+    this.firstProductCard = this.isAndroid
+      ? 'android=new UiSelector().className("android.widget.ImageView").clickable(true).instance(0)'
+      : '~product-item-0';
+
+    // Platform attribute name for reading element descriptions
+    this.attrName = this.isAndroid ? 'content-desc' : 'label';
   }
 
   async waitForPageLoad() {
@@ -75,82 +88,31 @@ class ProductGridPage extends BasePage {
     
     const option = await this.driver.$(selector);
     await option.click();
+    await this.driver.pause(this.settlePause);
   }
 
-  /**
-   * Universal Reset to Top (Pure Navigation).
-   * Returns the grid to the absolute ceiling without nudging.
-   */
-  async resetToTop(count) {
-    const { width, height } = await this.driver.getWindowRect();
-    const isTablet = width > 1200;
-    const safeX = Math.round(width * 0.3);
-    const resetCount = count || (isTablet ? 3 : 2);
-
-    if (!isTablet) {
-      for (let i = 0; i < resetCount; i++) {
-        await this.driver.performActions([
-          {
-            type: 'pointer',
-            id: 'finger1',
-            parameters: { pointerType: 'touch' },
-            actions: [
-              { type: 'pointerMove', duration: 0, x: safeX, y: Math.round(height * 0.45) },
-              { type: 'pointerDown', button: 0 },
-              { type: 'pointerMove', duration: 400, origin: 'viewport', x: safeX, y: Math.round(height * 0.65) },
-              { type: 'pointerUp', button: 0 },
-            ],
-          },
-        ]);
-        await this.driver.pause(150);
-      }
-    } else {
-      // TABLET: Hit the absolute ceiling (Power Swipes UP)
-      for (let i = 0; i < resetCount; i++) {
-        await this.driver.performActions([
-          {
-            type: 'pointer',
-            id: 'finger1',
-            parameters: { pointerType: 'touch' },
-            actions: [
-              { type: 'pointerMove', duration: 0, x: safeX, y: Math.round(height * 0.25) },
-              { type: 'pointerDown', button: 0 },
-              { type: 'pointerMove', duration: 600, origin: 'viewport', x: safeX, y: Math.round(height * 0.9) },
-              { type: 'pointerUp', button: 0 },
-            ],
-          },
-        ]);
-        await this.driver.pause(200);
-      }
-    }
-    await this.driver.pause(500); 
-  }
-
-  /**
-   * Performs a single, moderate flick to reveal the Name/Price of the first row.
-   * Only active on Tablets/Pads where the cards are too tall for the viewport.
-   */
   async nudgeToRevealFirstItem() {
     const { width, height } = await this.driver.getWindowRect();
-    if (width > 1200) {
-      const safeX = Math.round(width * 0.3);
-      // Calibrated 60% tug (Definitively reveals labels on wide screens)
-      await this.swipe(safeX, Math.round(height * 0.8), safeX, Math.round(height * 0.2), 800);
-      await this.driver.pause(800);
-    }
+    const isTablet = width > 1200;
+    if (!isTablet) return;
+
+    const safeX = Math.round(width * 0.3);
+    await this.swipe(safeX, Math.round(height * 0.75), safeX, Math.round(height * 0.1), 600);
+    await this.driver.pause(this.settlePause);
+  }
+
+  async navigateToCart() {
+    const btn = await this.driver.$(this.cartBtn);
+    await btn.click();
   }
 
   /**
    * Get attributes of the first visual product in the grid.
    */
   async getFirstProductDetails() {
-    const selector = this.isAndroid 
-      ? 'android=new UiSelector().className("android.widget.ImageView").clickable(true).instance(0)' 
-      : '~product-item';
-    
-    const firstProduct = await this.driver.$(selector);
+    const firstProduct = await this.driver.$(this.firstProductCard);
     await firstProduct.waitForDisplayed({ timeout: 5000 });
-    return await firstProduct.getAttribute('content-desc');
+    return await firstProduct.getAttribute(this.attrName);
   }
 
   /**
@@ -169,10 +131,10 @@ class ProductGridPage extends BasePage {
     const safeX = Math.round(width * 0.3);
 
     while (scrollCount < maxFlicks) {
-      const items = await this.driver.$$('android=new UiSelector().className("android.widget.ImageView").clickable(true)');
+      const items = await this.driver.$$(this.clickableItems);
       
       for (const item of items) {
-        const desc = await item.getAttribute('content-desc');
+        const desc = await item.getAttribute(this.attrName);
         if (desc && desc.includes('$')) {
           const [name, price] = desc.split('\n');
           
@@ -191,7 +153,7 @@ class ProductGridPage extends BasePage {
       // Safe Middle-Slice Flick
       await this.swipe(safeX, Math.round(height * 0.75), safeX, Math.round(height * 0.25), 1000);
       scrollCount++;
-      await this.driver.pause(1000);
+      await this.driver.pause(this.settlePause);
     }
 
     // FINAL ANCHOR TUG: Force the absolute bottom edge into view
@@ -213,13 +175,13 @@ class ProductGridPage extends BasePage {
           ],
         },
       ]);
-      await this.driver.pause(1200);
+      await this.driver.pause(this.settlePause);
     }
 
     // Final audit pass at the bottom
-    const finalItems = await this.driver.$$('android=new UiSelector().className("android.widget.ImageView").clickable(true)');
+    const finalItems = await this.driver.$$(this.clickableItems);
     for (const item of finalItems) {
-      const desc = await item.getAttribute('content-desc');
+      const desc = await item.getAttribute(this.attrName);
       if (desc && desc.includes('$')) {
         const name = desc.split('\n')[0];
         if (categoryData.products.some(p => p.name === name)) {
@@ -247,9 +209,9 @@ class ProductGridPage extends BasePage {
     const swipeDepth = isTablet ? 0.75 : 0.55; 
 
     while (collectedItems.size < totalGoal && scrollCount < maxFlicks) {
-      const items = await this.driver.$$('android=new UiSelector().className("android.widget.ImageView").clickable(true)');
+      const items = await this.driver.$$(this.clickableItems);
       for (const item of items) {
-        const desc = await item.getAttribute('content-desc');
+        const desc = await item.getAttribute(this.attrName);
         if (desc && desc.includes('$')) {
           collectedItems.add(desc.split('\n')[0]);
         }
@@ -272,7 +234,7 @@ class ProductGridPage extends BasePage {
         },
       ]);
       scrollCount++;
-      await this.driver.pause(isTablet ? 1200 : 1000); 
+      await this.driver.pause(this.settlePause);
     }
 
     // MANDATORY POWER-TUG SETTLE: Force the absolute bottom row into focus
@@ -292,13 +254,13 @@ class ProductGridPage extends BasePage {
           ],
         },
       ]);
-      await this.driver.pause(1500);
+      await this.driver.pause(this.settlePause);
     }
 
     // Final visual scan at the absolute bottom
-    const finalItems = await this.driver.$$('android=new UiSelector().className("android.widget.ImageView").clickable(true)');
+    const finalItems = await this.driver.$$(this.clickableItems);
     for (const item of finalItems) {
-      const desc = await item.getAttribute('content-desc');
+      const desc = await item.getAttribute(this.attrName);
       if (desc && desc.includes('$')) {
         collectedItems.add(desc.split('\n')[0]);
       }

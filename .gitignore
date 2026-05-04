@@ -6,6 +6,8 @@ blob-report/
 # Binaries
 apps/*.apk
 apps/*.aab
+apps/*.app
+apps/*.ipa
 
 # Environment / Secrets
 .env
@@ -24,9 +26,14 @@ appium.log
 # Local Documentation
 SESSION_HISTORY.md
 GEMINI.md
+CLAUDE.md
+plans/
 
 # Test Artifacts
 screenshots/
 videos/
 traces/
 *.xml
+
+# UI Dump artifacts
+view.xml

@@ -28,7 +28,7 @@ module.exports = defineConfig({
   use: {
     /* Base timeout for Appium commands */
     actionTimeout: 30000,
-    trace: 'on',
+    trace: 'retain-on-failure',
     screenshot: 'on',
   },
 

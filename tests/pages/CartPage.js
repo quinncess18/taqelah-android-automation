@@ -19,30 +19,15 @@ class CartPage extends BasePage {
       ? 'android=new UiSelector().description("Your cart is empty")' 
       : '~empty-cart-message';
     
-    this.continueShoppingBtn = this.isAndroid 
-      ? 'android=new UiSelector().className("android.widget.Button").description("Continue Shopping")' 
+    this.continueShoppingBtn = this.isAndroid
+      ? 'android=new UiSelector().className("android.widget.Button").description("Continue Shopping")'
       : '~Continue Shopping';
-    
-    this.backBtn = this.isAndroid 
-      ? 'android=new UiSelector().description("Back")' 
-      : '~Back';
   }
 
   async waitForPageLoad() {
     await this.waitForDisplayed(this.cartTitle);
   }
 
-  /**
-   * Navigate back to the previous screen via the header back button
-   */
-  async goBack() {
-    const btn = await this.driver.$(this.backBtn);
-    await btn.click();
-  }
-
-  /**
-   * Click continue shopping to return to the catalog
-   */
   async clickContinueShopping() {
     const btn = await this.driver.$(this.continueShoppingBtn);
     await btn.click();

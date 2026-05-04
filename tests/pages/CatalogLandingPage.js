@@ -54,21 +54,28 @@ class CatalogLandingPage extends BasePage {
   }
 
   async waitForPageLoad() {
-    await this.driver.pause(500); // Give UI transitions time to finish
+    await this.driver.pause(this.settlePause);
     await this.waitForDisplayed(this.shopAllBtn);
   }
 
-  /**
-   * Navigate to the full product list via 'Shop All'
-   */
   async navigateToShopAll() {
     const el = await this.driver.$(this.shopAllBtn);
     await el.click();
   }
 
+  async navigateToCart() {
+    const el = await this.driver.$(this.cartBtn);
+    await el.click();
+  }
+
+  async navigateToViewAll() {
+    const el = await this.driver.$(this.viewAllCategoriesBtn);
+    await el.click();
+  }
+
   /**
    * Select a category by name. 
-   * Uses fuzzy matching to ensure the correct card is picked even with naming variations.
+   * Uses fuzzy matching and robust scroll-to-view logic.
    */
   async selectCategory(name) {
     let selector;
@@ -78,9 +85,15 @@ class CatalogLandingPage extends BasePage {
     else selector = this.categoryBoho;
       
     const el = await this.driver.$(selector);
-    if (!(await this.isInsideViewport(selector))) {
-      await this.scrollToCategory(name);
+    
+    // SMART SCROLL: Only scroll if the card is physically off-screen
+    if (!(await el.isDisplayed())) {
+        const { width, height } = await this.driver.getWindowRect();
+        const safeX = Math.round(width * 0.3);
+        await this.swipe(safeX, Math.round(height * 0.8), safeX, Math.round(height * 0.3), 1200);
+        await this.driver.pause(this.settlePause);
     }
+    
     await el.click();
   }
 
@@ -102,7 +115,7 @@ class CatalogLandingPage extends BasePage {
       
       // Fluid 50% Height Swipe (Pulls content UP)
       await this.swipe(safeX, Math.round(height * 0.7), safeX, Math.round(height * 0.2), 1200);
-      await this.driver.pause(600);
+      await this.driver.pause(this.settlePause);
     }
   }
 }

@@ -1,6 +1,4 @@
 // @ts-check
-const { debugLog } = require('../utils/Logger');
-
 /**
  * BasePage — Foundational Page Object for Taqelah.
  * Encapsulates common driver interactions, waits, and W3C gestures.
@@ -11,21 +9,30 @@ class BasePage {
    */
   constructor(driver) {
     this.driver = driver;
-    
+
     // Platform Detection
     this.isAndroid = driver.isAndroid;
     this.isIOS = driver.isIOS;
 
+    // Per-device tuning values injected by appFixture
+    this.scrollPercent = driver._deviceProfile?.scrollPercent || 0.10;
+    this.settlePause = driver._deviceProfile?.settlePause || 800;
+
     // Shared Header Selectors
-    this.title = this.isAndroid 
-      ? 'android=new UiSelector().description("DemoApp")' 
+    this.title = this.isAndroid
+      ? 'android=new UiSelector().description("DemoApp")'
       : '~DemoApp';
-    
-    this.navMenuBtn = this.isAndroid 
-      ? 'android=new UiSelector().description("Open navigation menu")' 
+
+    this.navMenuBtn = this.isAndroid
+      ? 'android=new UiSelector().description("Open navigation menu")'
       : '~Open navigation menu';
 
-    // Dimensions will be fetched dynamically or on-demand to ensure accuracy
+    this.backBtn = this.isAndroid
+      ? 'android=new UiSelector().description("Back")'
+      : '~Back';
+
+    // App package identifiers — single source of truth for lifecycle operations
+    this.appPackage = this.isAndroid ? 'com.taqelah.demo_app' : 'com.taqelah.demoApp';
   }
 
   /**
@@ -62,19 +69,21 @@ class BasePage {
         ],
       },
     ]);
-    await this.driver.pause(800);
+    await this.driver.pause(this.settlePause);
   }
 
   /**
-   * Universal Swipe Up (Scroll Down).
-   * Targets the 30% safe zone to avoid system handles.
+   * Returns true if the element is currently displayed, false otherwise.
+   * Safe: never throws.
+   * @param {string} selector
    */
-  async swipeUp() {
-    const { width, height } = await this.driver.getWindowRect();
-    const safeX = Math.round(width * 0.3);
-    const startY = Math.round(height * 0.7);
-    const endY = Math.round(height * 0.3);
-    await this.swipe(safeX, startY, safeX, endY);
+  async isVisible(selector) {
+    try {
+      const el = await this.driver.$(selector);
+      return await el.isDisplayed();
+    } catch {
+      return false;
+    }
   }
 
   /**
@@ -107,6 +116,106 @@ class BasePage {
     const el = await this.driver.$(selector);
     await el.waitForDisplayed({ timeout });
     return el;
+  }
+  /**
+   * Universal Reset to Top (Pure Navigation).
+   * Returns the screen to the absolute ceiling without nudging.
+   */
+  async resetToTop(count) {
+    const { width, height } = await this.driver.getWindowRect();
+    const isTablet = width > 1200;
+    const safeX = Math.round(width * 0.3);
+    const resetCount = count || (isTablet ? 2 : 1);
+
+    if (!isTablet) {
+      for (let i = 0; i < resetCount; i++) {
+        await this.driver.performActions([
+          {
+            type: 'pointer',
+            id: 'finger1',
+            parameters: { pointerType: 'touch' },
+            actions: [
+              { type: 'pointerMove', duration: 0, x: safeX, y: Math.round(height * 0.45) },
+              { type: 'pointerDown', button: 0 },
+              { type: 'pointerMove', duration: 400, origin: 'viewport', x: safeX, y: Math.round(height * 0.65) },
+              { type: 'pointerUp', button: 0 },
+            ],
+          },
+        ]);
+        await this.driver.pause(150);
+      }
+    } else {
+      // TABLET: Hit the absolute ceiling (Power Swipes UP)
+      for (let i = 0; i < resetCount; i++) {
+        await this.driver.performActions([
+          {
+            type: 'pointer',
+            id: 'finger1',
+            parameters: { pointerType: 'touch' },
+            actions: [
+              { type: 'pointerMove', duration: 0, x: safeX, y: Math.round(height * 0.25) },
+              { type: 'pointerDown', button: 0 },
+              { type: 'pointerMove', duration: 600, origin: 'viewport', x: safeX, y: Math.round(height * 0.9) },
+              { type: 'pointerUp', button: 0 },
+            ],
+          },
+        ]);
+        await this.driver.pause(200);
+      }
+    }
+    await this.driver.pause(500); 
+  }
+
+  /**
+   * Performs a hardware 'Back' press.
+   */
+  async deviceBack() {
+    if (this.isAndroid) {
+      await this.driver.execute('mobile: shell', { command: 'input', args: ['keyevent', '4'] });
+    } else {
+      // iOS: XCUITest doesn't have a global back; we use driver.back() or app-specific logic
+      await this.driver.back();
+    }
+  }
+
+  /**
+   * Performs a hardware 'Home' press (Backgrounds app).
+   */
+  async deviceHome() {
+    if (this.isAndroid) {
+      await this.driver.execute('mobile: shell', { command: 'input', args: ['keyevent', '3'] });
+    } else {
+      await this.driver.backgroundApp(-1); 
+    }
+  }
+
+  /**
+   * Re-activates/Foregrounds the app.
+   * @param {boolean} [isDestructive=false] - If true, forces a fresh launch with cleared state.
+   */
+  async deviceForeground(isDestructive = false) {
+    if (this.isAndroid) {
+      const intent = `${this.appPackage}/${this.appPackage}.MainActivity`;
+      await this.driver.execute('mobile: startActivity', { intent, stop: isDestructive });
+      const { width } = await this.driver.getWindowRect();
+      if (width > 1200) await this.resetToTop();
+    } else {
+      await this.driver.activateApp(this.appPackage);
+    }
+  }
+
+  async killAndRelaunchApp() {
+    await this.driver.terminateApp(this.appPackage);
+    await this.driver.pause(2000);
+    await this.driver.activateApp(this.appPackage);
+  }
+
+  async samplePixel(x, y) {
+    const { PNG } = require('pngjs');
+    const base64 = await this.driver.takeScreenshot();
+    const png = PNG.sync.read(Buffer.from(base64, 'base64'));
+    const idx = (png.width * y + x) * 4;
+    return { r: png.data[idx], g: png.data[idx + 1], b: png.data[idx + 2] };
   }
 }
 

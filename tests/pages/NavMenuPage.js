@@ -52,21 +52,10 @@ class NavMenuPage extends BasePage {
       ? 'android=new UiSelector().description("TEST SCREENS")' 
       : '~test-screens-header';
 
-    // Global Header Elements
-    this.menuButton = this.isAndroid 
-      ? 'android=new UiSelector().description("Open navigation menu")' 
-      : '~open-menu';
-    
-    this.demoAppTitle = this.isAndroid 
-      ? 'android=new UiSelector().description("DemoApp")' 
-      : '~demo-app-title';
   }
 
-  /**
-   * Open the navigation drawer from any screen.
-   */
   async open() {
-    const btn = await this.driver.$(this.menuButton);
+    const btn = await this.driver.$(this.navMenuBtn);
     await btn.click();
     await this.waitForPageLoad();
   }
@@ -88,7 +77,9 @@ class NavMenuPage extends BasePage {
     let scrollCount = 0;
     while (!(await el.isDisplayed()) && scrollCount < 5) {
       const { width, height } = await this.driver.getWindowRect();
-      const safeX = Math.round(width * 0.3); // Inside drawer width
+      // Tablet sidebar is narrower relative to screen — use a smaller fraction to stay inside the drawer
+      const isTablet = width > 1200;
+      const safeX = Math.round(width * (isTablet ? 0.15 : 0.3));
       await this.swipe(safeX, Math.round(height * 0.7), safeX, Math.round(height * 0.3), 800);
       scrollCount++;
     }

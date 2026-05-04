@@ -71,28 +71,6 @@ const test = base.extend({
         hasGestureNav,
       };
 
-      // --- SELF-HEALING LOGIC ---
-      const testDir = workerInfo.project.testDir || '';
-      const isAuthModule = testDir.includes('01_auth');
-      const navMenuSelector = isAndroid 
-        ? 'android=new UiSelector().description("Open navigation menu")' 
-        : '~Open navigation menu';
-      
-      const navMenu = await driver.$(navMenuSelector);
-      
-      if (isAuthModule && await navMenu.isDisplayed()) {
-        console.log(`[appFixture] Resetting ${device.name} to Login screen...`);
-        if (isAndroid) {
-          await driver.execute('mobile: shell', { command: 'pm', args: ['clear', 'com.taqelah.demo_app'] });
-          await driver.execute('mobile: startActivity', { intent: 'com.taqelah.demo_app/com.taqelah.demo_app.MainActivity' });
-        } else {
-          // iOS alternative: clear storage usually requires re-install or app-specific reset
-          await driver.terminateApp('com.taqelah.demoApp');
-          await driver.activateApp('com.taqelah.demoApp');
-        }
-        await driver.pause(2000);
-      }
-
       await use(driver);
 
       await driver.deleteSession().catch((err) => {
