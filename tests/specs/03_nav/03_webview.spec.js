@@ -26,51 +26,49 @@ test.describe('Navigation - WebView / In-App Browser (TC-W01-W03)', () => {
   });
 
   test('TC-W01: should verify WebView opens and displays the Taqelah website correctly', async ({ driver }) => {
-    // Start from DemoApp Homepage — navigate to WebView
+    // Native-only verification. The DemoApp's WebView is built without
+    // WebContentsDebuggingEnabled, so WEBVIEW context never attaches and
+    // we cannot inspect the DOM. Heavy SPAs like taqelah.sg also do not
+    // expose accessibility nodes inside the WebView, so paint completion
+    // is not observable from native automation. We verify the surface:
+    // chrome elements present, URL bar accepted the target URL, and the
+    // WebView widget was instantiated with non-zero bounds.
     await navMenu.open();
     await navMenu.navigateTo(navMenu.navWebView);
     await webViewPage.waitForPageLoad();
 
-    // Verify the WebView screen elements are present
     expect(await webViewPage.isVisible(webViewPage.title)).toBe(true);
     expect(await webViewPage.isVisible(webViewPage.urlInput)).toBe(true);
     expect(await webViewPage.isVisible(webViewPage.goBtn)).toBe(true);
 
-    // Verify the URL bar contains the Taqelah website URL
     const currentUrl = await webViewPage.getCurrentUrl();
     expect(currentUrl).toContain('taqelah.sg');
 
-    // Verify the WebView container is present (page loaded)
     expect(await webViewPage.isWebViewDisplayed()).toBe(true);
-
-    // Stay on WebView screen — TC-W02 continues from here (no Back navigation)
+    const container = await driver.$(webViewPage.webViewContainer);
+    const { width, height } = await container.getSize();
+    expect(width).toBeGreaterThan(0);
+    expect(height).toBeGreaterThan(0);
   });
 
   test('TC-W02: should navigate to a new URL using the Go button', async ({ driver }) => {
-    // Pause between test cases for session stability
-    await driver.pause(2000);
-
-    // Navigate to a lightweight site using the URL bar and Go button
+    // example.com exposes accessibility nodes once the page paints, so we
+    // can anchor the load-complete signal on rendered page text rather
+    // than the URL bar (which updates instantly on Go click and is not a
+    // load signal).
     await webViewPage.navigateToUrl('https://example.com');
+    await webViewPage.waitForPageContent('Example Domain');
 
-    // Wait for the new page to load
-    await driver.pause(3000);
-
-    // Verify the URL bar now shows example.com
     const newUrl = await webViewPage.getCurrentUrl();
     expect(newUrl).toContain('example.com');
-
-    // Stay on WebView screen — TC-W03 continues from here (no Back navigation)
   });
 
   test('TC-W03: should verify WebView Back returns to the app with state preserved', async ({ driver }) => {
-    // Pause between test cases for session stability
-    await driver.pause(2000);
-
     // Navigate back using the header Back button
     await webViewPage.goBack();
 
     // Verify we're back on the DemoApp Home screen
+    await landingPage.waitForPageLoad();
     expect(await landingPage.isVisible(landingPage.shopAllBtn)).toBe(true);
   });
 });

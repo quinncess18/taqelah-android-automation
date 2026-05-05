@@ -12,6 +12,7 @@
     "test:nav": "npx playwright test tests/specs/03_nav/01_main_nav.spec.js",
     "test:gestures": "npx playwright test tests/specs/03_nav/02_gestures.spec.js",
     "test:webview": "npx playwright test tests/specs/03_nav/03_webview.spec.js",
+    "test:dialogs": "npx playwright test tests/specs/03_nav/04_dialogs.spec.js",
     "appium:start": "npx appium --allow-insecure adb_shell"
   },
   "dependencies": {
