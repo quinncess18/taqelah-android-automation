@@ -2,7 +2,8 @@
 
 Defines the test coverage and verification strategy for the Taqelah mobile application.
 
-**Current scope:** Android emulators (Pixel 8, Pixel Tablet) — full 28/28 baseline on both.
+**Current scope:** Android emulators (Pixel 8, Pixel Tablet) — full 46/46 baseline on both.
+
 **Roadmap:** iOS platform support (iPhone 15 Pro, iPad) post-June workshop.
 
 > Status legend: ✅ Verified · ⚠️ Under investigation · ⏳ Pending · — Not applicable
@@ -54,15 +55,51 @@ Defines the test coverage and verification strategy for the Taqelah mobile appli
 > - `getPinchCenterBrightness` uses a dark-pixel count across the full canvas on tablet (sparse icons in a wide canvas defeat a 3×3 brightness average).
 > - `verifyCanvasHasContent` uses a dense canvas-wide scan on tablet (after pan, the icon moves ~1748px — well outside a small center cross).
 > - `scrollToDragSection` adds a single page bump on tablet, anchored to the white-space gap below `swipeCard(5)`, so all 5 drag items enter the accessibility tree after re-navigation.
+> - `DialogsPage._dialGeometry` uses a side-by-side dialog layout on tablet (header on the LEFT, dial canvas on the RIGHT). Detection: if vertical room between header.bottom and switchBtn.top is < 200px, treat as tablet. Tablet dial center anchored on Cancel button's horizontal center.
 
-## 4. Shopping Cart (planned)
+## 4. Dialogs & Alerts
+| Test ID | Description | Strategy | Pixel 8 | Pixel Tablet |
+| :--- | :--- | :--- | :---: | :---: |
+| **TC-D01** | Dialogs page default state with all 7 trigger buttons | Universal POM | ✅ | ✅ |
+| **TC-D02** | Alert Dialog with Cancel and OK actions | Universal POM | ✅ | ✅ |
+| **TC-D03** | Bottom Sheet display and dismiss via Close button | Universal POM | ✅ | ✅ |
+| **TC-D04** | Snackbar display and UNDO action | Universal POM | ✅ | ✅ |
+| **TC-D05** | Date Picker — calendar view with OK, input mode with Cancel and OK, and calendar toggle | Multi-Modal | ✅ | ✅ |
+| **TC-D05-NEG** | "Invalid format." error when submitting empty date input | Negative | ✅ | ✅ |
+| **TC-D06** | Time Picker — analog dial mode with OK and Cancel, text input mode with OK and Cancel | Multi-Modal | ✅ | ✅ |
+| **TC-D07** | Simple Dialog radio option selection for all colors | Universal POM | ✅ | ✅ |
+| **TC-D08** | Full-Screen Dialog display, back navigation, and result card update | Universal POM | ✅ | ✅ |
+
+> **Time Picker constraints:**
+> - Analog dial: `android.widget.SeekBar` wrappers are read-only. Only canvas-tap at clock-angle position works. See `DialogsPage._tapDialAt` and `_dialGeometry`.
+> - Text input: `EditText` fields drop keys via raw `setValue`. Use `DialogsPage.typeIntoEditText` (`click()` → `clearValue()` → `addValue()`).
+
+## 5. Form Validation
+| Test ID | Description | Strategy | Pixel 8 | Pixel Tablet |
+| :--- | :--- | :--- | :---: | :---: |
+| **TC-F01** | Form Validation page default state with all form fields | Universal POM | ✅ | ✅ |
+| **TC-F02** | Submit successfully via the full happy path (Bridal/Large/2of5, 10:30 PM) | Universal POM | ✅ | ✅ |
+| **TC-F03** | Reject Submit when Terms is OFF, then succeed after ticking Terms (consolidated) | Universal POM | ✅ | ✅ |
+| **TC-F04** | Show all required-field error messages when submitting an empty form | Negative | ✅ | ✅ |
+| **TC-F05** | Show format-error messages for invalid email/phone/number/password | Negative | ✅ | ✅ |
+| **TC-F06** | Reset form state after Back-navigation and re-entry | Universal POM | ✅ | ✅ |
+
+> **Note:** Date and Time pickers in Form Validation reuse the same dialog popups from Dialogs & Alerts. See section 4 for Date/Time interaction details.
+> 
+> **Error messages:** Name="Name is required", Email="Email is required" / "Enter a valid email", Phone="Phone is required" / "At least 10 digits", Number="Required" / "Enter 1-100", Password="Password is required" / "Min 6 characters", Category="Please select a category", Terms="Please accept the terms" (toast). Success toast: "Form submitted successfully!"
+
+
+## 6. Shopping Cart (planned)
+
 | Test ID | Description | Strategy | Status |
 | :--- | :--- | :--- | :---: |
 | **TC-S01** | Add single item to cart | E2E Flow | ⏳ |
 | **TC-S02** | Update item quantity in cart | UI Interaction | ⏳ |
 | **TC-S03** | Remove item from cart | UI Interaction | ⏳ |
 
-## 5. Checkout (planned)
+## 7. Checkout (planned)
+
+
 | Test ID | Description | Strategy | Status |
 | :--- | :--- | :--- | :---: |
 | **TC-K01** | Complete purchase flow (Guest/User) | Full E2E | ⏳ |

@@ -1,0 +1,591 @@
+// @ts-check
+const { BasePage } = require('./BasePage');
+const { DialogsPage } = require('./DialogsPage');
+
+/**
+ * FormValidationPage — POM for the Form Validation module.
+ * Covers: Name, Email, Phone, Number, Password, Category dropdown,
+ * Terms checkbox, Size radio group, Subscribe switch, Rating seek bar,
+ * Date picker, Time picker, Submit and Reset buttons.
+ *
+ * Date and Time pickers reuse the same dialog popups from Dialogs & Alerts.
+ * Use DialogsPage methods for Date/Time interactions.
+ */
+class FormValidationPage extends BasePage {
+  /**
+   * @param {import('webdriverio').Browser} driver
+   */
+  constructor(driver) {
+    super(driver);
+
+    // Date/Time pickers open the same dialogs the Dialogs & Alerts module uses,
+    // so picker interaction is delegated to a DialogsPage instance to keep one
+    // source of truth for calendar/dial mechanics (selectYear, selectDate(day),
+    // setHours, setMinutes, selectPeriod, _dialGeometry, etc.).
+    this._dialogs = new DialogsPage(driver);
+
+    // ── Page Title ──
+    this.title = this.isAndroid
+      ? 'android=new UiSelector().description("Form Validation")'
+      : '~Form Validation';
+
+    // ── Text Input Fields ──
+    this.nameInput = this.isAndroid
+      ? 'android=new UiSelector().className("android.widget.EditText").instance(0)'
+      : '~name-input';
+
+    this.emailInput = this.isAndroid
+      ? 'android=new UiSelector().className("android.widget.EditText").instance(1)'
+      : '~email-input';
+
+    this.phoneInput = this.isAndroid
+      ? 'android=new UiSelector().className("android.widget.EditText").instance(2)'
+      : '~phone-input';
+
+    this.numberInput = this.isAndroid
+      ? 'android=new UiSelector().className("android.widget.EditText").instance(3)'
+      : '~number-input';
+
+    this.passwordInput = this.isAndroid
+      ? 'android=new UiSelector().className("android.widget.EditText").instance(4)'
+      : '~password-input';
+
+    // ── Category Dropdown ──
+    this.categoryBtn = this.isAndroid
+      ? 'android=new UiSelector().descriptionStartsWith("Category")'
+      : '~Category';
+
+    // ── Terms Checkbox ──
+    this.termsCheckbox = this.isAndroid
+      ? 'android=new UiSelector().description("I accept the terms and conditions")'
+      : '~I accept the terms and conditions';
+
+    // ── Size Radio Group ──
+    this.sizeLabel = this.isAndroid
+      ? 'android=new UiSelector().description("Size")'
+      : '~Size';
+
+    this.sizeSmall = this.isAndroid
+      ? 'android=new UiSelector().description("Small")'
+      : '~Small';
+
+    this.sizeMedium = this.isAndroid
+      ? 'android=new UiSelector().description("Medium")'
+      : '~Medium';
+
+    this.sizeLarge = this.isAndroid
+      ? 'android=new UiSelector().description("Large")'
+      : '~Large';
+
+    // ── Subscribe Switch ──
+    this.subscribeSwitch = this.isAndroid
+      ? 'android=new UiSelector().description("Subscribe to newsletter")'
+      : '~Subscribe to newsletter';
+
+    // ── Rating SeekBar ──
+    this.ratingLabel = this.isAndroid
+      ? 'android=new UiSelector().description("Rating")'
+      : '~Rating';
+
+    this.ratingSeekBar = this.isAndroid
+      ? 'android=new UiSelector().className("android.widget.SeekBar")'
+      : '~rating-seekbar';
+
+    this.ratingValue = this.isAndroid
+      ? 'android=new UiSelector().descriptionContains("/5")'
+      : '~rating-value';
+
+    // ── Date Picker (reuses Dialogs & Alerts popup) ──
+    this.dateInput = this.isAndroid
+      ? '//android.view.View[@hint="Date"]'
+      : '~date-input';
+
+    // ── Time Picker (reuses Dialogs & Alerts popup) ──
+    this.timeInput = this.isAndroid
+      ? '//android.view.View[@hint="Time"]'
+      : '~time-input';
+
+    // Date/Time picker dialog selectors (OK, year dropdown, dial geometry, etc.)
+    // are owned by DialogsPage and accessed via this._dialogs.
+
+    // ── Action Buttons ──
+    this.submitBtn = this.isAndroid
+      ? 'android=new UiSelector().description("Submit")'
+      : '~Submit';
+
+    // Reset sits at the very bottom fold below Submit. The form's height grows
+    // when fields are populated and error messages render, so a fixed-distance
+    // swipe can't reliably surface Reset. Wrap in UiScrollable so the driver
+    // scrolls the scrollable container until Reset enters the layout tree.
+    this.resetBtn = this.isAndroid
+      ? 'android=new UiScrollable(new UiSelector().scrollable(true).instance(0)).scrollIntoView(new UiSelector().description("Reset"))'
+      : '~Reset';
+
+    // ── Error Message Selectors ──
+    // Individual field-level errors (appear below each input)
+    this.errorName = this.isAndroid
+      ? 'android=new UiSelector().description("Name is required")'
+      : '~Name is required';
+
+    this.errorEmailRequired = this.isAndroid
+      ? 'android=new UiSelector().description("Email is required")'
+      : '~Email is required';
+
+    this.errorEmailInvalid = this.isAndroid
+      ? 'android=new UiSelector().description("Enter a valid email")'
+      : '~Enter a valid email';
+
+    this.errorPhoneRequired = this.isAndroid
+      ? 'android=new UiSelector().description("Phone is required")'
+      : '~Phone is required';
+
+    this.errorPhoneInvalid = this.isAndroid
+      ? 'android=new UiSelector().description("At least 10 digits")'
+      : '~At least 10 digits';
+
+    this.errorNumberRequired = this.isAndroid
+      ? 'android=new UiSelector().description("Required")'
+      : '~Required';
+
+    this.errorNumberRange = this.isAndroid
+      ? 'android=new UiSelector().description("Enter 1-100")'
+      : '~Enter 1-100';
+
+    this.errorPasswordRequired = this.isAndroid
+      ? 'android=new UiSelector().description("Password is required")'
+      : '~Password is required';
+
+    this.errorPasswordMin = this.isAndroid
+      ? 'android=new UiSelector().description("Min 6 characters")'
+      : '~Min 6 characters';
+
+    this.errorCategoryRequired = this.isAndroid
+      ? 'android=new UiSelector().description("Please select a category")'
+      : '~Please select a category';
+
+    // ── Toast / Snackbar Messages ──
+    this.toastTermsRequired = this.isAndroid
+      ? 'android=new UiSelector().description("Please accept the terms")'
+      : '~Please accept the terms';
+
+    this.toastSuccess = this.isAndroid
+      ? 'android=new UiSelector().description("Form submitted successfully!")'
+      : '~Form submitted successfully!';
+  }
+
+  /**
+   * Wait for the Form Validation page to load.
+   */
+  async waitForPageLoad() {
+    await this.waitForDisplayed(this.title);
+  }
+
+  /**
+   * Type text into a form input field.
+   * Uses click → clearValue → addValue for reliable input.
+   * @param {string} selector
+   * @param {string} value
+   */
+  async typeIntoField(selector, value) {
+    const el = await this.driver.$(selector);
+    await el.click();
+    await this.driver.pause(200);
+    await el.clearValue();
+    await this.driver.pause(200);
+    await el.addValue(value);
+    await this.driver.pause(200);
+  }
+
+  /**
+   * Fill in the Name field.
+   * @param {string} name
+   */
+  async enterName(name) {
+    await this.typeIntoField(this.nameInput, name);
+  }
+
+  /**
+   * Fill in the Email field.
+   * @param {string} email
+   */
+  async enterEmail(email) {
+    await this.typeIntoField(this.emailInput, email);
+  }
+
+  /**
+   * Fill in the Phone field.
+   * @param {string} phone
+   */
+  async enterPhone(phone) {
+    await this.typeIntoField(this.phoneInput, phone);
+  }
+
+  /**
+   * Fill in the Number field.
+   * @param {string|number} number
+   */
+  async enterNumber(number) {
+    await this.typeIntoField(this.numberInput, String(number));
+  }
+
+  /**
+   * Fill in the Password field. Pre-scrolls via UiScrollable so the
+   * Password EditText (instance 4) lands in the a11y tree even when prior
+   * field interactions auto-scrolled the form to a state where Password
+   * fell off the visible area.
+   *
+   * Tablet-only branch (F04→F05 cascade, diagnosed via
+   * `form-validation-password-focused.xml`): after click, the tablet a11y
+   * tree narrows (Name pushed off-screen and dropped), so instance(4)
+   * becomes unresolvable on WDIO's stale-retry inside typeIntoField.
+   * Workaround: click via instance(4) (still valid pre-click), then
+   * refetch via `focused(true)` for clearValue/addValue — this resolves
+   * to whichever EditText currently has focus, which is Password right
+   * after the click. Phone path stays on instance(4) end-to-end.
+   * @param {string} password
+   */
+  async enterPassword(password) {
+    if (this.isAndroid) {
+      const { width } = await this.driver.getWindowRect();
+      const isTablet = width > 1200;
+
+      if (isTablet) {
+        // Tablet branch — pre-scroll + click via instance(4), then refetch
+        // via focused(true) for the typing actions.
+        try {
+          const initialEl = await this.driver.$(
+            'android=new UiScrollable(new UiSelector().scrollable(true).instance(0)).scrollIntoView(new UiSelector().className("android.widget.EditText").instance(4))'
+          );
+          await initialEl.click();
+        } catch {
+          // No scroll needed — direct click on Password.
+          const fallbackEl = await this.driver.$(this.passwordInput);
+          await fallbackEl.click();
+        }
+        await this.driver.pause(400); // settle keyboard + Compose recompose
+        const focusedEl = await this.driver.$(
+          'android=new UiSelector().className("android.widget.EditText").focused(true)'
+        );
+        await focusedEl.clearValue();
+        await this.driver.pause(200);
+        await focusedEl.addValue(password);
+        await this.driver.pause(200);
+        return;
+      }
+
+      // Phone path (unchanged): pre-scroll, then standard typeIntoField.
+      try {
+        await this.driver.$(
+          'android=new UiScrollable(new UiSelector().scrollable(true).instance(0)).scrollIntoView(new UiSelector().className("android.widget.EditText").instance(4))'
+        );
+      } catch {
+        // Already in view or no scrollable container — fall through.
+      }
+    }
+    await this.typeIntoField(this.passwordInput, password);
+  }
+
+  /**
+   * Open the Category dropdown.
+   */
+  async openCategory() {
+    const el = await this.driver.$(this.categoryBtn);
+    await el.click();
+    await this.driver.pause(500);
+  }
+
+  /**
+   * Select a category from the dropdown.
+   * @param {'Casual' | 'Formal' | 'Party' | 'Bridal'} category
+   */
+  async selectCategory(category) {
+    await this.openCategory();
+    const selector = this.isAndroid
+      ? `android=new UiSelector().description("${category}")`
+      : `~${category}`;
+    const el = await this.driver.$(selector);
+    await el.click();
+    await this.driver.pause(500);
+  }
+
+  /**
+   * Select a size from the radio group.
+   * @param {'Small' | 'Medium' | 'Large'} size
+   */
+  async selectSize(size) {
+    const selector = this.isAndroid
+      ? `android=new UiSelector().description("${size}")`
+      : `~${size}`;
+    const el = await this.driver.$(selector);
+    await el.click();
+    await this.driver.pause(300);
+  }
+
+  /**
+   * Toggle the terms checkbox.
+   */
+  async toggleTerms() {
+    const el = await this.driver.$(this.termsCheckbox);
+    await el.click();
+    await this.driver.pause(300);
+  }
+
+  /**
+   * Toggle the subscribe switch.
+   */
+  async toggleSubscribe() {
+    const el = await this.driver.$(this.subscribeSwitch);
+    await el.click();
+    await this.driver.pause(300);
+  }
+
+  /**
+   * Set the rating via the SeekBar's underlying Material 3 Slider.
+   *
+   * Uses `mobile: dragGesture` (UIAutomator2 driver's native gesture API)
+   * because W3C `performActions` and `mobile: shell input swipe` don't
+   * generate dense-enough MotionEvents for Compose's drag detector to
+   * recognize as a drag — the thumb stays put. `mobile: dragGesture`
+   * synthesizes a proper Android drag with intermediate move events.
+   *
+   * The demo app maps percent to a 1..5 scale (NOT 0..5):
+   *   0%  → "0%, 1"  / label "1/5"
+   *   50% → "50%, 3" / label "3/5" (default)
+   *   100% → "100%, 5" / label "5/5"
+   *
+   * @param {number} percent - 0 to 100 (0 = far left, 100 = far right)
+   */
+  async setRating(percent) {
+    // Tablet pushes the SeekBar into the bottom fold so it isn't in the a11y
+    // tree from a top-fold viewport. Scroll-into-view via UiScrollable as a
+    // side effect — keeps `ratingSeekBar` selector simple for F01's
+    // visibility assertion (which intentionally tests fold position).
+    await this._scrollRatingIntoView();
+    const el = await this.driver.$(this.ratingSeekBar);
+    const size = await el.getSize();
+    const loc = await el.getLocation();
+    // Read current thumb position from content-desc (e.g. "50%, 3"); fall
+    // back to 50% if the format ever changes — non-fatal, drag still works.
+    const currentDesc = await el.getAttribute('content-desc');
+    const currentPct = parseInt(String(currentDesc).match(/(\d+)%/)?.[1] || '50', 10);
+    // Inset by a few px so we never tap exactly on the bar's edge.
+    const inset = 4;
+    const trackX = (pct) => Math.round(
+      loc.x + inset + ((size.width - 2 * inset) * pct / 100)
+    );
+    const startX = trackX(currentPct);
+    const endX = trackX(percent);
+    const y = Math.round(loc.y + size.height / 2);
+    if (this.isAndroid) {
+      await this.driver.execute('mobile: dragGesture', {
+        startX,
+        startY: y,
+        endX,
+        endY: y,
+        speed: 700,
+      });
+    } else {
+      // iOS: XCUITest equivalent. Duration in seconds.
+      await this.driver.execute('mobile: dragFromToForDuration', {
+        fromX: startX,
+        fromY: y,
+        toX: endX,
+        toY: y,
+        duration: 1.2,
+      });
+    }
+    await this.driver.pause(400);
+  }
+
+  /**
+   * Click the Submit button.
+   */
+  async submit() {
+    const el = await this.driver.$(this.submitBtn);
+    await el.click();
+    await this.driver.pause(500);
+  }
+
+  /**
+   * Click the Reset button.
+   */
+  async reset() {
+    const el = await this.driver.$(this.resetBtn);
+    await el.click();
+    await this.driver.pause(500);
+  }
+
+  /**
+   * Open the date picker in calendar view, pick a year, tap a day, and confirm with OK.
+   * Mirrors 04_dialogs.spec.js TC-D05 Part 1 (calendar happy path) — no input mode.
+   * The calendar stays on the year's currently-displayed month, so the resulting
+   * date will be `YYYY-<currentMonth>-<day>`.
+   * Caller must scroll the Date input into viewport first.
+   *
+   * @param {number} year - Full year (e.g. 2027). Must be visible in the year scroller.
+   * @param {number} day - Day of month (1-31)
+   */
+  async selectDate(year, day) {
+    const el = await this.driver.$(this.dateInput);
+    await el.click();
+    await this.driver.pause(600);
+    await this.waitForDisplayed(this._dialogs.datePickerTitle);
+
+    // Open the year dropdown and select the target year
+    await (await this.driver.$(this._dialogs.datePickerYear)).click();
+    await this.driver.pause(500);
+    await this._dialogs.selectYear(year);
+
+    // Tap the day in the (now-active) month grid
+    await this._dialogs.selectDate(day);
+
+    // Confirm
+    await (await this.driver.$(this._dialogs.datePickerOk)).click();
+    await this.driver.pause(500);
+  }
+
+  /**
+   * Open the time picker in analog dial mode, set hour and minute via dial taps,
+   * select AM/PM, and confirm with OK.
+   * Mirrors 04_dialogs.spec.js TC-D06 Part 1 (analog dial happy path) — no input mode.
+   * Caller must scroll the Time input into viewport first.
+   *
+   * @param {number} hour - Hour (1-12)
+   * @param {number} minute - Minute (0-59)
+   * @param {'AM' | 'PM'} period
+   */
+  async selectTime(hour, minute, period) {
+    const el = await this.driver.$(this.timeInput);
+    await el.click();
+    await this.driver.pause(600);
+    await this.waitForDisplayed(this._dialogs.timePickerTitle);
+
+    await this._dialogs.setHours(hour);
+    await this._dialogs.setMinutes(minute);
+    await this._dialogs.selectPeriod(period);
+
+    await (await this.driver.$(this._dialogs.timePickerOk)).click();
+    await this.driver.pause(500);
+  }
+
+  /**
+   * Check if a radio option is selected.
+   * @param {'Small' | 'Medium' | 'Large'} size
+   * @returns {Promise<boolean>}
+   */
+  async isSizeSelected(size) {
+    const selector = this.isAndroid
+      ? `android=new UiSelector().description("${size}")`
+      : `~${size}`;
+    const el = await this.driver.$(selector);
+    return this._readCheckedState(el);
+  }
+
+  /**
+   * Check if the terms checkbox is checked.
+   * @returns {Promise<boolean>}
+   */
+  async isTermsChecked() {
+    const el = await this.driver.$(this.termsCheckbox);
+    return this._readCheckedState(el);
+  }
+
+  /**
+   * Check if the subscribe switch is checked.
+   * @returns {Promise<boolean>}
+   */
+  async isSubscribeChecked() {
+    const el = await this.driver.$(this.subscribeSwitch);
+    return this._readCheckedState(el);
+  }
+
+  /**
+   * Internal helper: read a checkable element's selected state across platforms.
+   *   Android — `checked === 'true'`
+   *   iOS     — `value === '1'`
+   * @param {WebdriverIO.Element} el
+   * @returns {Promise<boolean>}
+   */
+  async _readCheckedState(el) {
+    if (this.isAndroid) {
+      return (await el.getAttribute('checked')) === 'true';
+    }
+    return (await el.getAttribute('value')) === '1';
+  }
+
+  /**
+   * Get the current rating text (e.g. "3/5"). Scrolls the SeekBar into view
+   * first so the value label is in the a11y tree on tablet (bottom-fold).
+   * @returns {Promise<string>}
+   */
+  async getRatingText() {
+    await this._scrollRatingIntoView();
+    const el = await this.driver.$(this.ratingValue);
+    return await el.getAttribute('content-desc');
+  }
+
+  /**
+   * Scroll the Rating SeekBar into view via UiScrollable. Used by setRating
+   * and getRatingText so they work regardless of fold position. iOS no-op —
+   * iOS auto-scrolls EditText fields by default; revisit when iOS is wired.
+   */
+  async _scrollRatingIntoView() {
+    if (!this.isAndroid) return;
+    try {
+      await this.driver.$(
+        'android=new UiScrollable(new UiSelector().scrollable(true).instance(0)).scrollIntoView(new UiSelector().className("android.widget.SeekBar"))'
+      );
+    } catch {
+      // Already in view or layout doesn't have a scrollable container.
+    }
+  }
+
+  /**
+   * Get the Date input's current value as surfaced via a11y. Reads `text` first
+   * (where the form actually surfaces the chosen date as ISO YYYY-MM-DD),
+   * falling back to `content-desc`. Returns empty string if neither is set.
+   *
+   * UiAutomator2 quirk: missing attributes come back as the literal string
+   * "null", not JS null — so treat "null" as absent.
+   * @returns {Promise<string>}
+   */
+  async getDateText() {
+    return this._readNodeValue(this.dateInput);
+  }
+
+  /**
+   * Get the Time input's current value (e.g. "10:30 AM"). Same a11y read
+   * strategy as getDateText.
+   * @returns {Promise<string>}
+   */
+  async getTimeText() {
+    return this._readNodeValue(this.timeInput);
+  }
+
+  /**
+   * Internal helper: read a Compose-backed input's value from the `text`
+   * attribute first, then `content-desc`, treating UiAutomator2's literal
+   * "null" string as absent.
+   * @param {string} selector
+   * @returns {Promise<string>}
+   */
+  async _readNodeValue(selector) {
+    const el = await this.driver.$(selector);
+    if (this.isAndroid) {
+      // Form surfaces the chosen date/time on `text`; SeekBar value lives on `content-desc`.
+      const text = await el.getAttribute('text');
+      if (text && text !== 'null') return text;
+      const desc = await el.getAttribute('content-desc');
+      if (desc && desc !== 'null') return desc;
+    } else {
+      // iOS exposes the chosen value via `value`; `label` is a label-only fallback.
+      const value = await el.getAttribute('value');
+      if (value && value !== 'null') return value;
+      const label = await el.getAttribute('label');
+      if (label && label !== 'null') return label;
+    }
+    return '';
+  }
+}
+
+module.exports = { FormValidationPage };

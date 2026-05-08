@@ -14,10 +14,10 @@ module.exports = defineConfig({
   /* Stop on first failure locally to save time */
   maxFailures: process.env.CI ? 0 : 1,
   
-  /* 
-   * DYNAMIC WORKER ENGINE 
-   */
-  workers: process.env.CI ? 1 : (process.env.WORKERS || DEVICES.length),
+  /* Single worker — devices run sequentially to avoid Appium port
+   * collisions and UIAutomator2 session crashes that surface when
+   * multiple devices share a worker pool. */
+  workers: 1,
 
   reporter: [
     ['html'],

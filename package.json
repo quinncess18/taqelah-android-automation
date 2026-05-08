@@ -4,7 +4,7 @@
   "description": "Enterprise-grade Flutter mobile automation framework for Taqelah Boutique",
   "main": "index.js",
   "scripts": {
-    "test": "node scripts/run-parallel.js",
+    "test": "npx playwright test",
     "test:login": "npx playwright test tests/specs/01_auth/01_functional.spec.js",
     "test:login:neg": "npx playwright test tests/specs/01_auth/02_negative.spec.js",
     "test:catalog": "npx playwright test tests/specs/02_catalog/01_landing.spec.js",
@@ -13,7 +13,10 @@
     "test:gestures": "npx playwright test tests/specs/03_nav/02_gestures.spec.js",
     "test:webview": "npx playwright test tests/specs/03_nav/03_webview.spec.js",
     "test:dialogs": "npx playwright test tests/specs/03_nav/04_dialogs.spec.js",
+    "test:form": "npx playwright test tests/specs/03_nav/05_form.spec.js",
+
     "appium:start": "npx appium --allow-insecure adb_shell"
+
   },
   "dependencies": {
     "webdriverio": "^8.36.1"

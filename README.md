@@ -8,14 +8,18 @@ Production-grade automation framework for the **Taqelah Boutique** Flutter appli
 - **Module 2 (Catalog):** ✅ TC-C01–C11 — Pixel 8 + Pixel Tablet.
 - **Module 3 (Navigation & Gestures):** ✅ TC-M01–M08 — Pixel 8 + Pixel Tablet.
 - **WebView (In-App Browser):** ✅ TC-W01–W03 — Pixel 8 + Pixel Tablet.
-- **Upcoming:** Module 4 (Shopping Cart), Module 5 (Checkout).
+- **Dialogs & Alerts:** ✅ TC-D01–D08, TC-D05-NEG — Pixel 8 + Pixel Tablet.
+- **Form Validation:** ✅ TC-F01–F06 — Pixel 8 + Pixel Tablet.
+
+- **Upcoming:** Module 6 (Shopping Cart), Module 7 (Checkout).
 - **Roadmap:** iOS platform support (iPhone 15 Pro, iPad) post-June workshop.
+
 
 ## 🚀 Key Features
 - **Cross-Platform-Ready Architecture:** Codebase designed for both Android and iOS targets. Currently verified on Android emulators (Pixel 8, Pixel Tablet); iOS device profiles (iPhone 15 Pro, iPad) scaffolded for post-workshop integration.
 - **Safe-Zone Gestures:** Device-agnostic logic using a **30% width safe zone**, avoiding all system handles and split-view triggers on wide screens.
 - **Cross-Platform POMs:** Intelligent Page Objects using the "Ternary Selector" pattern to bridge Android and iOS Flutter TestKeys.
-- **Parallel Cross-Device Support:** One Playwright child process per device via `scripts/run-parallel.js` — avoids Appium port collisions and UIAutomator2 session crashes.
+- **Sequential Cross-Device Execution:** `workers: 1` in `playwright.config.js` runs each device project (Pixel 8, Pixel Tablet) sequentially — avoids Appium port collisions and UIAutomator2 session crashes.
 - **Scalable Architecture:** Module-first directory structure designed for large-scale E2E coverage.
 - **Flutter-First Strategy:** Optimized stability pauses specifically for Flutter's high-momentum accessibility tree.
 
@@ -24,7 +28,6 @@ Production-grade automation framework for the **Taqelah Boutique** Flutter appli
 ├── apps/                 # Application binaries (.apk, .app)
 ├── config/               # Device (Android/iOS) and Appium server configurations
 ├── fixtures/             # Playwright custom fixtures (Dynamic Driver switching)
-├── scripts/              # Custom runners (run-parallel.js)
 ├── tests/
 │   ├── data/             # Static test data (products.js)
 │   ├── pages/            # Page Object Models (Cross-Platform Selectors)
@@ -61,7 +64,7 @@ npm install
 # 1. Start Appium (required before any test run)
 npm run appium:start
 
-# 2. Run all tests (parallel across configured devices)
+# 2. Run all tests (sequential across configured devices, single worker)
 npm test
 
 # Module-specific runs
@@ -72,9 +75,13 @@ npm run test:categories    # 02_catalog/02_categories.spec.js
 npm run test:nav           # 03_nav/01_main_nav.spec.js
 npm run test:gestures      # 03_nav/02_gestures.spec.js
 npm run test:webview       # 03_nav/03_webview.spec.js
+npm run test:dialogs       # 03_nav/04_dialogs.spec.js
+npm run test:form          # 03_nav/05_form.spec.js
 
 # Single spec against a specific device
+
 npx playwright test tests/specs/01_auth/01_functional.spec.js --project="Pixel 8 (Local)"
+
 
 # Single TC by ID
 npx playwright test --project="Pixel 8 (Local)" -g "TC-L01"
