@@ -10,8 +10,9 @@ Production-grade automation framework for the **Taqelah Boutique** Flutter appli
 - **WebView (In-App Browser):** ✅ TC-W01–W03 — Pixel 8 + Pixel Tablet.
 - **Dialogs & Alerts:** ✅ TC-D01–D08, TC-D05-NEG — Pixel 8 + Pixel Tablet.
 - **Form Validation:** ✅ TC-F01–F06 — Pixel 8 + Pixel Tablet.
+- **Permissions:** ✅ TC-P01–P04 — Pixel 8 + Pixel Tablet.
 
-- **Upcoming:** Module 6 (Shopping Cart), Module 7 (Checkout).
+- **Upcoming:** Module 7 (Shopping Cart), Module 8 (Checkout).
 - **Roadmap:** iOS platform support (iPhone 15 Pro, iPad) post-June workshop.
 
 
@@ -77,6 +78,7 @@ npm run test:gestures      # 03_nav/02_gestures.spec.js
 npm run test:webview       # 03_nav/03_webview.spec.js
 npm run test:dialogs       # 03_nav/04_dialogs.spec.js
 npm run test:form          # 03_nav/05_form.spec.js
+npm run test:permissions    # 03_nav/06_permissions.spec.js
 
 # Single spec against a specific device
 

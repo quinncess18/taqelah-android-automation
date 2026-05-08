@@ -2,7 +2,7 @@
 
 Defines the test coverage and verification strategy for the Taqelah mobile application.
 
-**Current scope:** Android emulators (Pixel 8, Pixel Tablet) — full 46/46 baseline on both.
+**Current scope:** Android emulators (Pixel 8, Pixel Tablet) — full 52/52 baseline on both.
 
 **Roadmap:** iOS platform support (iPhone 15 Pro, iPad) post-June workshop.
 
@@ -88,8 +88,20 @@ Defines the test coverage and verification strategy for the Taqelah mobile appli
 > 
 > **Error messages:** Name="Name is required", Email="Email is required" / "Enter a valid email", Phone="Phone is required" / "At least 10 digits", Number="Required" / "Enter 1-100", Password="Password is required" / "Min 6 characters", Category="Please select a category", Terms="Please accept the terms" (toast). Success toast: "Form submitted successfully!"
 
+## 6. Permissions
+| Test ID | Description | Strategy | Pixel 8 | Pixel Tablet |
+| :--- | :--- | :--- | :---: | :---: |
+| **TC-P01** | Permissions page default state with all 3 entries "Not checked" + no "Open Settings" | Universal POM | ✅ | ✅ |
+| **TC-P02** | Grant Camera (Video→While using, Audio→Deny→recover→One time→Granted), Location (While using), Storage (auto-grant) — verify persistence with re-navigation | Multi-Dialog Grant | ✅ | ✅ |
+| **TC-P03** | Grant Camera (While using twice), Location (Only this time), Storage (auto-grant) — verify persistence | Alternative Grant + Persistence | ✅ | ✅ |
+| **TC-P04** | Deny Camera twice (→Denied→Permanently Denied), deny Location twice (→Denied→Permanently Denied), auto-grant Storage — verify persistence with Request taps confirming no OS re-dialogs | Deny-2x + Persistence | ✅ | ✅ |
 
-## 6. Shopping Cart (planned)
+> **Native dialog handling:** Uses `resource-id` selectors from Android PermissionController (`permission_allow_foreground_only_button`, `permission_deny_button`, `permission_deny_and_dont_ask_again_button`). The 1st deny uses `permission_deny_button`; the 2nd deny (triggering "Permanently Denied") uses `permission_deny_and_dont_ask_again_button`. The POM selector uses `resourceIdMatches(".*permission_deny.*")` to match both variants.
+> **State management:** `beforeAll` calls `pm reset-permissions` to ensure clean "Not checked" state. Each individual test also resets before its own request to isolate side effects from prior test runs. The shell command minimizes the app, so `deviceForeground()` re-activates it and tests re-navigate back to the Permissions page.
+> **Note:** The three "Request" buttons share identical `content-desc` text (`"Request"`) and are differentiated via `.instance(0/1/2)` in order of appearance (Camera=0, Location=1, Storage=2).
+> **Persistence strategy:** After granting/denying, tests navigate away (back to Home) and back to verify state survives round-trip. Re-tapping Request buttons confirms no OS re-dialogs reappear.
+
+## 7. Shopping Cart (planned)
 
 | Test ID | Description | Strategy | Status |
 | :--- | :--- | :--- | :---: |
@@ -97,7 +109,7 @@ Defines the test coverage and verification strategy for the Taqelah mobile appli
 | **TC-S02** | Update item quantity in cart | UI Interaction | ⏳ |
 | **TC-S03** | Remove item from cart | UI Interaction | ⏳ |
 
-## 7. Checkout (planned)
+## 8. Checkout (planned)
 
 
 | Test ID | Description | Strategy | Status |
