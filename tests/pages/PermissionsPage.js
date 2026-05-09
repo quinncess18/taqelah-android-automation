@@ -60,13 +60,21 @@ class PermissionsPage extends BasePage {
       : '~storage-info';
 
     // ── Native OS Permission Dialog (Android PermissionController) ──
+    // API 30+ — "While using the app" button
     this.allowWhileUsingBtn = this.isAndroid
       ? 'android=new UiSelector().resourceId("com.android.permissioncontroller:id/permission_allow_foreground_only_button")'
       : '~While using the app';
 
+    // API 30+ — "Only this time" button
     this.allowOneTimeBtn = this.isAndroid
       ? 'android=new UiSelector().resourceId("com.android.permissioncontroller:id/permission_allow_one_time_button")'
       : '~Only this time';
+
+    // API 29 fallback ("Allow" / "Allow all the time") — used when the specific
+    // accept-option buttons don't exist (pre-Android 11 permission dialogs).
+    this.allowGenericBtn = this.isAndroid
+      ? 'android=new UiSelector().resourceId("com.android.permissioncontroller:id/permission_allow_button")'
+      : '~Allow';
 
     // On 1st deny: `permission_deny_button`
     // On 2nd deny ("Denied" → "Permanently Denied"): `permission_deny_and_dont_ask_again_button`
@@ -115,24 +123,44 @@ class PermissionsPage extends BasePage {
   /**
    * Accept the native permission dialog by tapping "While using the app".
    * Waits for the dialog to appear, taps accept, then waits for dismissal.
+   * Falls back to the generic "Allow" button on pre-API-30 emulators
+   * (e.g. CI on API 29) where the foreground-only button doesn't exist.
    */
   async acceptWhileUsing() {
-    const btn = await this.driver.$(this.allowWhileUsingBtn);
-    await btn.waitForDisplayed({ timeout: 5000 });
-    await btn.click();
+    try {
+      const btn = await this.driver.$(this.allowWhileUsingBtn);
+      await btn.waitForDisplayed({ timeout: 2000 });
+      await btn.click();
+    } catch {
+      // Fallback: try the generic "Allow" button (API 29 and below)
+      const fallback = await this.driver.$(this.allowGenericBtn);
+      await fallback.waitForDisplayed({ timeout: 5000 });
+      await fallback.click();
+    }
     await this.driver.pause(2000);
   }
+
 
   /**
    * Accept the native permission dialog by tapping "Only this time".
    * Waits for the dialog to appear, taps accept, then waits for dismissal.
+   * Falls back to the generic "Allow" button on pre-API-30 emulators
+   * (e.g. CI on API 29) where the one-time button doesn't exist.
    */
   async acceptOneTime() {
-    const btn = await this.driver.$(this.allowOneTimeBtn);
-    await btn.waitForDisplayed({ timeout: 5000 });
-    await btn.click();
+    try {
+      const btn = await this.driver.$(this.allowOneTimeBtn);
+      await btn.waitForDisplayed({ timeout: 2000 });
+      await btn.click();
+    } catch {
+      // Fallback: try the generic "Allow" button (API 29 and below)
+      const fallback = await this.driver.$(this.allowGenericBtn);
+      await fallback.waitForDisplayed({ timeout: 5000 });
+      await fallback.click();
+    }
     await this.driver.pause(2000);
   }
+
 
   /**
    * Deny the native permission dialog by tapping "Don't allow".
