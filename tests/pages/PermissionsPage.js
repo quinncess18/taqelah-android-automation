@@ -290,13 +290,9 @@ class PermissionsPage extends BasePage {
         args: ['reset-permissions', this.appPackage],
       });
       await this.driver.pause(1000);
-      // Re-activate the app via shell am start (more reliable on API 29 than
-      // mobile: startActivity which can crash the UiAutomator2 server)
-      await this.driver.execute('mobile: shell', {
-        command: 'am',
-        args: ['start', '-n', `${this.appPackage}/.MainActivity`],
-      });
-      await this.driver.pause(1500);
+      // Re-activate the app after the shell command minimizes it
+      await this.deviceForeground();
+      await this.driver.pause(500);
     }
     // iOS: will be added when iOS testing begins (e.g. uninstall/reinstall or Settings nav)
   }

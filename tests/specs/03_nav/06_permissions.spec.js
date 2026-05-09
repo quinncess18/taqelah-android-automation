@@ -113,15 +113,12 @@ test.describe('Navigation - Permissions Suite (TC-P01-P04)', () => {
     await permsPage.tapRequest(permsPage.locationRequestBtn);
     await permsPage.tapRequest(permsPage.storageRequestBtn);
 
-    // Verify Camera and Location statuses BEFORE scrolling (scrolling can push
-    // elements off the accessibility tree on API 29 / CI emulators)
-    expect(await permsPage.getPermissionStatus(permsPage.cameraEntry)).toBe('Granted');
-    expect(await permsPage.getPermissionStatus(permsPage.locationEntry)).toBe('Granted');
-
     // Scroll down to verify Storage Info persistence
     await permsPage.scrollDownToStorageInfo();
 
-    // Verify Storage status and Storage Info fields
+    // Verify all statuses persisted
+    expect(await permsPage.getPermissionStatus(permsPage.cameraEntry)).toBe('Granted');
+    expect(await permsPage.getPermissionStatus(permsPage.locationEntry)).toBe('Granted');
     expect(await permsPage.getPermissionStatus(permsPage.storageEntry)).toBe('Granted');
     expect(await permsPage.isVisible(permsPage.storageInfoEntry)).toBe(true);
     expect(await permsPage.getStorageField('Total')).toBeTruthy();
@@ -184,15 +181,12 @@ test.describe('Navigation - Permissions Suite (TC-P01-P04)', () => {
     await permsPage.tapRequest(permsPage.locationRequestBtn);
     await permsPage.tapRequest(permsPage.storageRequestBtn);
 
-    // Verify Camera and Location statuses BEFORE scrolling (scrolling can push
-    // elements off the accessibility tree on API 29 / CI emulators)
-    expect(await permsPage.getPermissionStatus(permsPage.cameraEntry)).toBe('Granted');
-    expect(await permsPage.getPermissionStatus(permsPage.locationEntry)).toBe('Granted');
-
     // Scroll down to verify Storage Info persistence
     await permsPage.scrollDownToStorageInfo();
 
-    // Verify Storage status and Storage Info fields
+    // Verify all statuses persisted
+    expect(await permsPage.getPermissionStatus(permsPage.cameraEntry)).toBe('Granted');
+    expect(await permsPage.getPermissionStatus(permsPage.locationEntry)).toBe('Granted');
     expect(await permsPage.getPermissionStatus(permsPage.storageEntry)).toBe('Granted');
     expect(await permsPage.isVisible(permsPage.storageInfoEntry)).toBe(true);
     expect(await permsPage.getStorageField('Total')).toBeTruthy();
@@ -266,18 +260,15 @@ test.describe('Navigation - Permissions Suite (TC-P01-P04)', () => {
     await permsPage.tapRequest(permsPage.locationRequestBtn);
     await permsPage.tapRequest(permsPage.storageRequestBtn);
 
-    // Verify Camera and Location statuses BEFORE scrolling (scrolling can push
-    // elements off the accessibility tree on API 29 / CI emulators)
-    expect(await permsPage.getPermissionStatus(permsPage.cameraEntry)).toBe('Permanently Denied');
-    expect(await permsPage.getPermissionStatus(permsPage.locationEntry)).toBe('Permanently Denied');
-    expect(await permsPage.hasOpenSettingsButton(permsPage.cameraEntry)).toBe(true);
-    expect(await permsPage.hasOpenSettingsButton(permsPage.locationEntry)).toBe(true);
-
     // Scroll down to verify Storage Info persistence
     await permsPage.scrollDownToStorageInfo();
 
-    // Verify Storage status and Storage Info fields
+    // Verify all statuses persisted
+    expect(await permsPage.getPermissionStatus(permsPage.cameraEntry)).toBe('Permanently Denied');
+    expect(await permsPage.getPermissionStatus(permsPage.locationEntry)).toBe('Permanently Denied');
     expect(await permsPage.getPermissionStatus(permsPage.storageEntry)).toBe('Granted');
+    expect(await permsPage.hasOpenSettingsButton(permsPage.cameraEntry)).toBe(true);
+    expect(await permsPage.hasOpenSettingsButton(permsPage.locationEntry)).toBe(true);
     expect(await permsPage.isVisible(permsPage.storageInfoEntry)).toBe(true);
     expect(await permsPage.getStorageField('Total')).toBeTruthy();
     expect(await permsPage.getStorageField('Used')).toBeTruthy();
