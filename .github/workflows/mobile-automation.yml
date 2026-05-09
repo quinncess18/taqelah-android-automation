@@ -46,7 +46,7 @@ jobs:
         env:
           APPIUM_HOME: ${{ github.workspace }}
         with:
-          api-level: 34          
+          api-level: 29          
           target: default        
           arch: x86_64
           profile: pixel_6
