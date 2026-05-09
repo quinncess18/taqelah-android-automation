@@ -70,6 +70,9 @@ test.describe('Navigation - Permissions Suite (TC-P01-P04)', () => {
     await permsPage.tapRequest(permsPage.cameraRequestBtn);
     await permsPage.acceptWhileUsing();
     await permsPage.denyPermission();
+    // Wait for the dialog dismissal animation to complete before probing the entry
+    // (CI emulators are slower and the dimming overlay may still be present)
+    await permsPage.waitForDisplayed(permsPage.cameraEntry);
     expect(await permsPage.getPermissionStatus(permsPage.cameraEntry)).toBe('Camera init error');
 
     // Camera recovery: Request again → Audio → "Only this time" → "Granted"
@@ -126,7 +129,8 @@ test.describe('Navigation - Permissions Suite (TC-P01-P04)', () => {
   test('TC-P03: should grant Camera (While using), Location (Only this time), Storage and verify persistence', async ({ driver }) => {
     // Reset permissions for fresh state
     await permsPage.resetPermissions();
-    await driver.pause(1000);
+    // Wait for Home to fully render before navigating (CI emulator is slower)
+    await landingPage.waitForDisplayed(landingPage.shopAllBtn, 15000);
 
     // Navigate back to Permissions page (reset re-launches the app to Home)
     await navMenu.open();
@@ -193,7 +197,8 @@ test.describe('Navigation - Permissions Suite (TC-P01-P04)', () => {
   test('TC-P04: should deny Camera and Location twice, verify "Permanently Denied", auto-grant Storage, and verify persistence', async ({ driver }) => {
     // Reset permissions for fresh state
     await permsPage.resetPermissions();
-    await driver.pause(1000);
+    // Wait for Home to fully render before navigating (CI emulator is slower)
+    await landingPage.waitForDisplayed(landingPage.shopAllBtn, 15000);
 
     // Navigate back to Permissions page (reset re-launches the app to Home)
     await navMenu.open();

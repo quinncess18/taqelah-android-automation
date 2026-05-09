@@ -95,19 +95,40 @@ class PermissionsPage extends BasePage {
    * The content-desc follows the pattern: "<Name>\n<Status>"
    * e.g. "Camera\nNot checked", "Camera\nGranted", "Camera\nDenied",
    *      "Camera\nPermanently Denied\nOn simulator, some permissions auto-deny...",
-   *      "Location\nGranted (no GPS fix)"
+   *      "Location\nGetting location...", "Location\nGranted (no GPS fix)"
    * Parenthetical suffixes like "(no GPS fix)" are stripped so specs can assert
    * plain "Granted" regardless of GPS availability on the device/emulator.
+   *
+   * If the status is a transitional state (like Location's "Getting location..." which
+   * eventually settles to "Granted (no GPS fix)"), this method auto-waits up to
+   * `timeout` ms for the transition to complete. This prevents specs from needing
+   * to insert explicit polling after re-navigation when the permission re-resolves.
+   *
    * @param {string} entrySelector - Selector for the permission entry
+   * @param {number} [timeout=15000] - Max wait time in ms for transitional states to settle
    * @returns {Promise<string>} The status string (e.g. "Not checked", "Granted", "Denied", "Permanently Denied")
    */
-  async getPermissionStatus(entrySelector) {
+  async getPermissionStatus(entrySelector, timeout = 15000) {
+    const start = Date.now();
+    const transitionalStates = ['Getting location...'];
+    while (Date.now() - start < timeout) {
+      const el = await this.driver.$(entrySelector);
+      const desc = await el.getAttribute('content-desc');
+      const parts = String(desc).split('\n');
+      const raw = parts.length > 1 ? parts[1].trim() : '';
+      const normalized = raw.replace(/\s*\(.*?\)\s*/g, '').trim();
+      // If the status is still transitional, wait and re-check
+      if (transitionalStates.includes(normalized)) {
+        await this.driver.pause(500);
+        continue;
+      }
+      return normalized;
+    }
+    // Timeout — return the last raw value for diagnostic clarity
     const el = await this.driver.$(entrySelector);
     const desc = await el.getAttribute('content-desc');
     const parts = String(desc).split('\n');
-    const raw = parts.length > 1 ? parts[1].trim() : '';
-    // Strip parenthetical qualifiers like "(no GPS fix)" → ""
-    return raw.replace(/\s*\(.*?\)\s*/g, '').trim();
+    return (parts.length > 1 ? parts[1].trim() : '');
   }
 
   /**
@@ -179,9 +200,9 @@ class PermissionsPage extends BasePage {
    * The status is normalized through getPermissionStatus (strips "(no GPS fix)" etc.).
    * @param {string} entrySelector - Selector for the permission entry
    * @param {string} expectedStatus - e.g. "Granted", "Denied", "Permanently Denied"
-   * @param {number} [timeout=10000] - Max wait time in ms
+   * @param {number} [timeout=20000] - Max wait time in ms
    */
-  async waitForPermissionStatus(entrySelector, expectedStatus, timeout = 10000) {
+  async waitForPermissionStatus(entrySelector, expectedStatus, timeout = 20000) {
     const start = Date.now();
     while (Date.now() - start < timeout) {
       const status = await this.getPermissionStatus(entrySelector);

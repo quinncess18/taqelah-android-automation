@@ -15,9 +15,7 @@
     "test:dialogs": "npx playwright test tests/specs/03_nav/04_dialogs.spec.js",
     "test:form": "npx playwright test tests/specs/03_nav/05_form.spec.js",
     "test:permissions": "npx playwright test tests/specs/03_nav/06_permissions.spec.js",
-
     "appium:start": "npx appium --allow-insecure adb_shell"
-
   },
   "dependencies": {
     "webdriverio": "^8.36.1"
@@ -25,7 +23,8 @@
   "devDependencies": {
     "@playwright/test": "^1.44.0",
     "appium": "^2.11.3",
-    "appium-uiautomator2-driver": "^3.7.0",
+    "appium-uiautomator2-driver": "^4.0.0",
+    "io.appium.settings": "^7.1.0",
     "pngjs": "^7.0.0"
   },
   "keywords": [
