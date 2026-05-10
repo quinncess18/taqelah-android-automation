@@ -207,7 +207,7 @@ class PermissionsPage extends BasePage {
     // be checked for "Permanently Denied" status
     try {
       const checkbox = await this.driver.$(
-        'android=new UiSelector().resourceId("com.android.permissioncontroller:id/permission_do_not_ask_checkbox")'
+        'android=new UiSelector().resourceId("com.android.permissioncontroller:id/do_not_ask_checkbox")'
       );
       await checkbox.waitForDisplayed({ timeout: 1000 });
       await checkbox.click();
