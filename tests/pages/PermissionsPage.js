@@ -167,6 +167,8 @@ class PermissionsPage extends BasePage {
    * Waits for the dialog to appear, taps accept, then waits for dismissal.
    * Falls back to the generic "Allow" button on pre-API-30 emulators
    * (e.g. CI on API 29) where the one-time button doesn't exist.
+   * Third fallback to "While using the app" for API 29 Location dialogs
+   * that have neither "Only this time" nor a generic "Allow" button.
    */
   async acceptOneTime() {
     try {
@@ -174,10 +176,18 @@ class PermissionsPage extends BasePage {
       await btn.waitForDisplayed({ timeout: 2000 });
       await btn.click();
     } catch {
-      // Fallback: try the generic "Allow" button (API 29 and below)
-      const fallback = await this.driver.$(this.allowGenericBtn);
-      await fallback.waitForDisplayed({ timeout: 5000 });
-      await fallback.click();
+      try {
+        // Fallback 1: try the generic "Allow" button (API 29 and below)
+        const fallback = await this.driver.$(this.allowGenericBtn);
+        await fallback.waitForDisplayed({ timeout: 2000 });
+        await fallback.click();
+      } catch {
+        // Fallback 2: on API 29, Location dialog has neither "Only this time"
+        // nor generic "Allow" — only "Allow only while using the app"
+        const lastResort = await this.driver.$(this.allowWhileUsingBtn);
+        await lastResort.waitForDisplayed({ timeout: 5000 });
+        await lastResort.click();
+      }
     }
     await this.driver.pause(2000);
   }

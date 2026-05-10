@@ -134,6 +134,10 @@ test.describe('Navigation - Permissions Suite (TC-P01-P04)', () => {
     await permsPage.resetPermissions();
     // Wait for Home to fully render before navigating (CI emulator is slower)
     await landingPage.waitForDisplayed(landingPage.shopAllBtn, 15000);
+    // Extra settle pause: on CI, Flutter's AppBar (with hamburger menu) may not
+    // be in the accessibility tree yet even after content renders. Give it time
+    // so navMenu.open() doesn't hit "element wasn't found".
+    await driver.pause(2000);
 
     // Navigate back to Permissions page (reset re-launches the app to Home)
     await navMenu.open();
@@ -210,6 +214,10 @@ test.describe('Navigation - Permissions Suite (TC-P01-P04)', () => {
     await permsPage.resetPermissions();
     // Wait for Home to fully render before navigating (CI emulator is slower)
     await landingPage.waitForDisplayed(landingPage.shopAllBtn, 15000);
+    // Extra settle pause: on CI, Flutter's AppBar (with hamburger menu) may not
+    // be in the accessibility tree yet even after content renders. Give it time
+    // so navMenu.open() doesn't hit "element wasn't found".
+    await driver.pause(2000);
 
     // Navigate back to Permissions page (reset re-launches the app to Home)
     await navMenu.open();
