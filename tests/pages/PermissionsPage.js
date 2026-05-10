@@ -194,27 +194,60 @@ class PermissionsPage extends BasePage {
 
 
   /**
-   * Deny the native permission dialog by tapping "Don't allow".
-   * Waits for the dialog to appear, taps deny, then waits for dismissal.
-   * On API 29, the 2nd deny dialog includes a "Don't ask again" checkbox
-   * (resourceId: permission_do_not_ask_checkbox) that must be checked for
-   * the permission to become "Permanently Denied". This method checks it
-   * before denying if present. On 1st deny (or API 30+), the checkbox
-   * doesn't exist and the catch silently skips it.
+   * Deny the native permission dialog — handles 2nd-deny escalation to
+   * "Permanently Denied" on API 29 by trying all known dialog variants:
+   *
+   * 1. Combined "Deny & don't ask again" button (Google APIs API 29)
+   * 2. "Don't ask again" checkbox (AOSP API 29) + explicit deny button
+   * 3. Plain "Deny" button (1st deny, API 30+, or fallback)
+   *
+   * The regex-based denyBtn selector
+   * (resourceIdMatches(".*permission_deny.*")) will match
+   * permission_deny_button before permission_deny_and_dont_ask_again_button
+   * alphabetically, so the combined button MUST be tried first as a separate
+   * explicit selector.
    */
   async denyPermission() {
-    // API 29: 2nd deny dialog has a "Don't ask again" checkbox that must
-    // be checked for "Permanently Denied" status
+    await this.driver.pause(500);
+    // 1. Combined "Deny & don't ask again" button (Google APIs API 29).
+    try {
+      const denyDontAsk = await this.driver.$(
+        'android=new UiSelector().resourceId("com.android.permissioncontroller:id/permission_deny_and_dont_ask_again_button")'
+      );
+      await denyDontAsk.waitForDisplayed({ timeout: 1500 });
+      await denyDontAsk.click();
+      await this.driver.pause(2000);
+      return;
+    } catch {
+      // Combined button not present → not Google APIs
+    }
+    // 2. Check for "Don't ask again" checkbox (AOSP API 29).
+    // Use coordinate-based tap for reliability vs. WDIO's .click().
+    let checkboxFound = false;
     try {
       const checkbox = await this.driver.$(
         'android=new UiSelector().resourceId("com.android.permissioncontroller:id/do_not_ask_checkbox")'
       );
-      await checkbox.waitForDisplayed({ timeout: 1000 });
-      await checkbox.click();
+      await checkbox.waitForDisplayed({ timeout: 1500 });
+      const loc = await checkbox.getLocation();
+      const size = await checkbox.getSize();
+      await this.driver.touchAction({
+        action: 'tap',
+        x: Math.round(loc.x + size.width / 2),
+        y: Math.round(loc.y + size.height / 2),
+      });
+      checkboxFound = true;
+      await this.driver.pause(300);
     } catch {
-      // Checkbox doesn't exist on 1st deny or API 30+ → silently skip
+      // Checkbox not present — 1st deny or API 30+
     }
-    const btn = await this.driver.$(this.denyBtn);
+    // 3. Click the deny button.
+    // If checkbox was found (AOSP 2nd deny), use explicit resourceId to
+    // avoid the regex matching a stale element. Otherwise use regex fallback.
+    const denySelector = checkboxFound
+      ? 'android=new UiSelector().resourceId("com.android.permissioncontroller:id/permission_deny_button")'
+      : this.denyBtn;
+    const btn = await this.driver.$(denySelector);
     await btn.waitForDisplayed({ timeout: 7000 });
     await btn.click();
     await this.driver.pause(2000);
