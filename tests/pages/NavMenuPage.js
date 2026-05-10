@@ -55,7 +55,7 @@ class NavMenuPage extends BasePage {
   }
 
   async open() {
-    const btn = await this.driver.$(this.navMenuBtn);
+    const btn = await this.waitForDisplayed(this.navMenuBtn, 15000);
     await btn.click();
     await this.waitForPageLoad();
   }

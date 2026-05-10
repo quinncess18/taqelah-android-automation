@@ -151,6 +151,11 @@ test.describe('Navigation - Permissions Suite (TC-P01-P04)', () => {
     await permsPage.acceptWhileUsing();
     expect(await permsPage.getPermissionStatus(permsPage.cameraEntry)).toBe('Granted');
 
+    // Extra settle pause: CI emulators may still have the Audio dialog's dimming overlay
+    // active when Location's Request button is tapped, swallowing the touch and preventing
+    // the native Location dialog from appearing at all.
+    await driver.pause(3000);
+
     // ── Location: Request → "Only this time" ──
     // Poll through transient "Getting location..." state (safer on slower emulators)
     await permsPage.tapRequest(permsPage.locationRequestBtn);
