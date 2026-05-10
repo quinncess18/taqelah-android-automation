@@ -196,8 +196,24 @@ class PermissionsPage extends BasePage {
   /**
    * Deny the native permission dialog by tapping "Don't allow".
    * Waits for the dialog to appear, taps deny, then waits for dismissal.
+   * On API 29, the 2nd deny dialog includes a "Don't ask again" checkbox
+   * (resourceId: permission_do_not_ask_checkbox) that must be checked for
+   * the permission to become "Permanently Denied". This method checks it
+   * before denying if present. On 1st deny (or API 30+), the checkbox
+   * doesn't exist and the catch silently skips it.
    */
   async denyPermission() {
+    // API 29: 2nd deny dialog has a "Don't ask again" checkbox that must
+    // be checked for "Permanently Denied" status
+    try {
+      const checkbox = await this.driver.$(
+        'android=new UiSelector().resourceId("com.android.permissioncontroller:id/permission_do_not_ask_checkbox")'
+      );
+      await checkbox.waitForDisplayed({ timeout: 1000 });
+      await checkbox.click();
+    } catch {
+      // Checkbox doesn't exist on 1st deny or API 30+ → silently skip
+    }
     const btn = await this.driver.$(this.denyBtn);
     await btn.waitForDisplayed({ timeout: 7000 });
     await btn.click();
