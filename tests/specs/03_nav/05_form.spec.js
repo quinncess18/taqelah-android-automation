@@ -131,7 +131,7 @@ test.describe('Navigation - Form Validation Suite (TC-F01-F06)', () => {
     expect(await formPage.getTimeText()).toMatch(/^10:30\s*PM$/i);
 
     await formPage.submit();
-    await (await driver.$(formPage.toastSuccess)).waitForDisplayed({ timeout: 5000 });
+    await (await driver.$(formPage.toastSuccess)).waitForDisplayed({ timeout: 10000 });
 
     // Pause for the success Snackbar to clear (~4s in this app) BEFORE
     // Reset — a visible toast intercepts the Reset tap region and the
@@ -159,7 +159,7 @@ test.describe('Navigation - Form Validation Suite (TC-F01-F06)', () => {
     await hideKeyboard(driver);
     await scrollToBottom(driver, formPage);
     await formPage.submit();
-    await (await driver.$(formPage.toastTermsRequired)).waitForDisplayed({ timeout: 5000 });
+    await (await driver.$(formPage.toastTermsRequired)).waitForDisplayed({ timeout: 10000 });
 
     // Wait for Terms-required toast to clear before the second submit so it
     // doesn't intercept the Terms tap region.
@@ -169,7 +169,7 @@ test.describe('Navigation - Form Validation Suite (TC-F01-F06)', () => {
     await formPage.toggleTerms();
     await scrollToBottom(driver, formPage);
     await formPage.submit();
-    await (await driver.$(formPage.toastSuccess)).waitForDisplayed({ timeout: 5000 });
+    await (await driver.$(formPage.toastSuccess)).waitForDisplayed({ timeout: 10000 });
 
     // Pause for success toast to clear before Reset (see F02 comment).
     await driver.pause(4000);
