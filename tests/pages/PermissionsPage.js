@@ -150,7 +150,10 @@ class PermissionsPage extends BasePage {
   async acceptWhileUsing() {
     try {
       const btn = await this.driver.$(this.allowWhileUsingBtn);
-      await btn.waitForDisplayed({ timeout: 2000 });
+      // 5s primary — second back-to-back dialog (Camera Video → Audio) needs
+      // time for dialog #1 dismiss animation + dialog #2 render on slower
+      // CI emulators (API 34 boots are noticeably slower than API 29).
+      await btn.waitForDisplayed({ timeout: 5000 });
       await btn.click();
     } catch {
       // Fallback: try the generic "Allow" button (API 29 and below)
@@ -173,7 +176,8 @@ class PermissionsPage extends BasePage {
   async acceptOneTime() {
     try {
       const btn = await this.driver.$(this.allowOneTimeBtn);
-      await btn.waitForDisplayed({ timeout: 2000 });
+      // 5s primary — see acceptWhileUsing for slow-CI rationale.
+      await btn.waitForDisplayed({ timeout: 5000 });
       await btn.click();
     } catch {
       try {
@@ -348,12 +352,21 @@ class PermissionsPage extends BasePage {
         command: 'pm',
         args: ['reset-permissions', this.appPackage],
       });
-      await this.driver.pause(1000);
-      // Re-activate the app via shell am start (more reliable on API 29 than
-      // mobile: startActivity which can crash the UiAutomator2 server)
+      // Force-stop before relaunch so we always land on a fresh Home, not
+      // wherever the previous TC happened to leave the activity stack.
+      // Without this, `am start` brings the existing activity to foreground
+      // when the app is already running (e.g. on Permissions page mid-test).
       await this.driver.execute('mobile: shell', {
         command: 'am',
-        args: ['start', '-n', `${this.appPackage}/.MainActivity`],
+        args: ['force-stop', this.appPackage],
+      });
+      await this.driver.pause(1000);
+      // -W blocks until the activity is fully launched (matches Notifications
+      // reset pattern — eliminates the race where am start returns before the
+      // activity is foreground on slower emulators).
+      await this.driver.execute('mobile: shell', {
+        command: 'am',
+        args: ['start', '-W', '-n', `${this.appPackage}/.MainActivity`],
       });
       await this.driver.pause(1500);
     }
