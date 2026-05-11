@@ -271,9 +271,21 @@ class GesturesPage extends BasePage {
       return darkCount;
     }
 
-    // Phone (unchanged): 3×3 brightness average.
-    const cols = [0.25, 0.5, 0.75].map(p => Math.round(loc.x + sz.width * p));
-    const rows = [0.25, 0.5, 0.75].map(p => Math.round(canvasTop + canvasHeight * p));
+    // Phone: 3×3 brightness average, sampled across the FULL screen width
+    // (not the narrow "Pinch to Zoom" label's width). The label is typically
+    // narrower than the canvas underneath it, and on Pixel 6 (CI emulator)
+    // the canvas icon renders outside the label's x-range — sampling within
+    // label x left both before and after at ~227 (white margin) and the
+    // assertion failed despite the pinch firing correctly. Anchoring x on
+    // screen width hits the icon reliably on both Pixel 8 (local) and
+    // Pixel 6 (CI).
+    //
+    // Account for any device-vs-screenshot resolution mismatch (rare, but
+    // safe): scale x/y by the screenshot's actual dimensions.
+    const xScale = png.width / screenWidth;
+    const yScale = png.height / screenHeight;
+    const cols = [0.25, 0.5, 0.75].map(p => Math.round(screenWidth * p * xScale));
+    const rows = [0.25, 0.5, 0.75].map(p => Math.round((canvasTop + canvasHeight * p) * yScale));
     let total = 0;
     for (const x of cols) {
       for (const y of rows) {
