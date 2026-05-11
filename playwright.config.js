@@ -10,7 +10,11 @@ module.exports = defineConfig({
   testDir: './tests/specs',
   fullyParallel: false, // Mobile tests usually require sequential execution per device
   forbidOnly: !!process.env.CI,
-  retries: 0,
+  /* 2 retries on CI to absorb emulator-induced flakiness (cold-boot
+   * Pixel 6 on a hardware-constrained runner is intermittently slow on
+   * Compose render, form submit toast, dialog dismiss animation). Local
+   * runs stay at 0 — flakes there indicate a real fix is needed. */
+  retries: process.env.CI ? 2 : 0,
   /* Stop on first failure locally to save time */
   maxFailures: process.env.CI ? 0 : 1,
   

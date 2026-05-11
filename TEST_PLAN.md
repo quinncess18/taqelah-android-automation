@@ -2,7 +2,7 @@
 
 Defines the test coverage and verification strategy for the Taqelah mobile application.
 
-**Current scope:** Android emulators (Pixel 8, Pixel Tablet) — full 52/52 baseline on both.
+**Current scope:** Android emulators — Pixel 8 (API 35, local) + Pixel Tablet (API 35, local) for full coverage; CI runs Pixel 6 profile at API 34 (Android 14, google_apis target). 55 TCs across 7 modules verified on local; CI is mid-migration from API 29 to API 34 with `retries: 2` to absorb emulator flake.
 
 **Roadmap:** iOS platform support (iPhone 15 Pro, iPad) post-June workshop.
 
@@ -97,12 +97,25 @@ Defines the test coverage and verification strategy for the Taqelah mobile appli
 | **TC-P04** | Deny Camera twice (→Denied→Permanently Denied), deny Location twice (→Denied→Permanently Denied), auto-grant Storage — verify persistence with Request taps confirming no OS re-dialogs | Deny-2x + Persistence | ✅ | ✅ |
 
 > **Native dialog handling:** Uses `resource-id` selectors from Android PermissionController (`permission_allow_foreground_only_button`, `permission_deny_button`, `permission_deny_and_dont_ask_again_button`). The 1st deny uses `permission_deny_button`; the 2nd deny (triggering "Permanently Denied") uses `permission_deny_and_dont_ask_again_button`. The POM selector uses `resourceIdMatches(".*permission_deny.*")` to match both variants.
-> **API-level fallback (CI compatibility):** CI emulators run API 29 (Android 10), where the permission dialog shows a generic "Allow" button (`permission_allow_button`) instead of the API-30-specific "While using the app" / "Only this time" buttons. `acceptWhileUsing()` and `acceptOneTime()` both use a try/catch pattern: try the API-30-specific button first (2s timeout), then fall back to the generic `PermissionController:id/permission_allow_button` selector for pre-API-30 emulators.
-> **State management:** `beforeAll` calls `pm reset-permissions` to ensure clean "Not checked" state. Each individual test also resets before its own request to isolate side effects from prior test runs. The shell command minimizes the app, so `am start` (via shell, more reliable on API 29 than `mobile: startActivity`) re-activates it and tests re-navigate back to the Permissions page.
+> **API-level fallback (CI compatibility):** Retained from the prior API-29 CI baseline. `acceptWhileUsing()` and `acceptOneTime()` try the API-30-specific button first (5s timeout — bumped from 2s after CI migration to API 34, where the back-to-back Camera Video → Audio dialog pair needs more time for dialog #1 dismiss + dialog #2 render on a slower emulator), then fall back to the generic `PermissionController:id/permission_allow_button` selector for pre-API-30 emulators.
+> **State management:** `beforeAll` calls `pm reset-permissions` to ensure clean "Not checked" state. Each individual test also resets before its own request to isolate side effects from prior test runs. `resetPermissions()` now force-stops the app before `am start -W` so reset reliably lands on Home rather than wherever the previous TC left the activity stack (without force-stop, `am start` brings the existing activity to foreground when the app is still running).
 > **Scroll-safe persistence checks:** In TC-P02/P03/P04, Camera and Location statuses are verified *before* `scrollDownToStorageInfo()`. On API 29, scrolling pushes offscreen elements entirely out of the accessibility tree (not just visually), causing `element wasn't found` errors. Only Storage (below the fold) is checked after the scroll.
 > **Note:** The three "Request" buttons share identical `content-desc` text (`"Request"`) and are differentiated via `.instance(0/1/2)` in order of appearance (Camera=0, Location=1, Storage=2).
 
-## 7. Shopping Cart (planned)
+## 7. Notifications
+| Test ID | Description | Strategy | Pixel 8 | Pixel Tablet |
+| :--- | :--- | :--- | :---: | :---: |
+| **TC-NT01** | Accept OS dialog → card "Notification permission granted" → exercise all 5 triggers (Instant, Schedule, Banner DISMISS + VIEW, Dialog LATER + OK, Snackbar VIEW) | Universal POM + Helper | ✅ | ✅ |
+| **TC-NT02** | Deny OS dialog → card "Permission denied — notifications may not appear" → exercise all 5 triggers | Universal POM + Helper | ✅ | ✅ |
+| **TC-NT03** | Deny dialog twice (with leave+return between, since Android 13+ re-prompts once after a single deny) → 3rd entry has no dialog (permanent denial) → card reverts to "No notifications sent yet" → exercise all 5 triggers | Sequential Persistence | ✅ | ✅ |
+
+> **API requirement:** Notifications module requires Android 13+ (API 33+) — `POST_NOTIFICATIONS` is an API-33 runtime permission. CI was migrated from API 29 → API 34 specifically to support this module; prior to migration the OS dialog never appeared and the entire flow was unreachable.
+> **`pm clear` reset:** The DemoApp tracks "have we asked for POST_NOTIFICATIONS?" in SharedPreferences. `pm reset-permissions` clears OS-level grants and user_set flags but leaves the app's pref intact, so the dialog stays suppressed across runs. `resetNotificationPermission()` uses `pm clear` to wipe app data fully (heavyweight; only the Notifications module needs this) + `am start -W` (with a 2.5s settle pause) to relaunch reliably on both phone and tablet. Side effect: `pm clear` also wipes login state → spec's `gotoNotifications` re-authenticates via `LoginPage.login()` before nav.
+> **Dialog a11y tree narrowing:** The in-app dialog (Show Dialog Notification → modal with OK/LATER) removes underlying page nodes from the accessibility tree while open (verified via UI dump). Card-status assertions for the dialog flow must happen *after* the dialog is dismissed — not while it's open. In-app banner and snackbar do NOT narrow the tree.
+> **Card-status truth:** OK changes the card to "Dialog action tapped!"; LATER and scrim dismissal leave the card at "In-app dialog shown!" (no separate "dismissed" status). LATER vs scrim are indistinguishable by card text — TC-NT01 covers LATER as the "close-without-action" path; scrim is intentionally not tested (no unique state).
+> **Pixel Tablet (emulator-5556, API 35) prerequisite:** Grant `ACCESS_FINE_LOCATION` / `ACCESS_COARSE_LOCATION` to `io.appium.settings` before any test run — its ForegroundService is declared with type=location and crashes on API 34+ without those perms, breaking Appium session init.
+
+## 8. Shopping Cart (planned)
 
 | Test ID | Description | Strategy | Status |
 | :--- | :--- | :--- | :---: |
@@ -110,7 +123,7 @@ Defines the test coverage and verification strategy for the Taqelah mobile appli
 | **TC-S02** | Update item quantity in cart | UI Interaction | ⏳ |
 | **TC-S03** | Remove item from cart | UI Interaction | ⏳ |
 
-## 8. Checkout (planned)
+## 9. Checkout (planned)
 
 
 | Test ID | Description | Strategy | Status |

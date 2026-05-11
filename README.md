@@ -10,9 +10,10 @@ Production-grade automation framework for the **Taqelah Boutique** Flutter appli
 - **WebView (In-App Browser):** ✅ TC-W01–W03 — Pixel 8 + Pixel Tablet.
 - **Dialogs & Alerts:** ✅ TC-D01–D08, TC-D05-NEG — Pixel 8 + Pixel Tablet.
 - **Form Validation:** ✅ TC-F01–F06 — Pixel 8 + Pixel Tablet.
-- **Permissions:** ✅ TC-P01–P04 — Pixel 8 + Pixel Tablet (with transitional-state auto-wait for Location's "Getting location..." status resolution, `am start` for API-29-safe `resetPermissions()`, and scroll-safe persistence checks).
+- **Permissions:** ✅ TC-P01–P04 — Pixel 8 + Pixel Tablet (with transitional-state auto-wait for Location's "Getting location..." status resolution, force-stop + `am start -W` in `resetPermissions()`, 5s primary dialog timeout for the back-to-back Camera Video → Audio sequence on slower emulators, and scroll-safe persistence checks).
+- **Notifications:** ✅ TC-NT01–NT03 — Pixel 8 + Pixel Tablet. Covers OS dialog Allow / Don't allow / Permanent denial (2× deny → suppressed dialog → card reverts to "No notifications sent yet"). Shared `exerciseAllTriggers()` POM helper exercises system notifications (Instant, Schedule), in-app banner (DISMISS, VIEW), in-app dialog (LATER, OK), and in-app snackbar (VIEW). Uses `pm clear` reset (the DemoApp tracks "have we asked POST_NOTIFICATIONS?" in SharedPreferences — `pm reset-permissions` alone is insufficient); spec re-authenticates after `pm clear` wipes login state.
 
-- **Upcoming:** Module 7 (Shopping Cart), Module 8 (Checkout).
+- **Upcoming:** Tabs (`03_nav/08_tabs`), Camera (`03_nav/09_camera`), Location (`03_nav/10_location`). Camera and Location require real-device cloud (BrowserStack) for meaningful coverage — emulators fake hardware sensors poorly.
 
 
 ## 🚀 Key Features
@@ -77,7 +78,8 @@ npm run test:gestures      # 03_nav/02_gestures.spec.js
 npm run test:webview       # 03_nav/03_webview.spec.js
 npm run test:dialogs       # 03_nav/04_dialogs.spec.js
 npm run test:form          # 03_nav/05_form.spec.js
-npm run test:permissions    # 03_nav/06_permissions.spec.js
+npm run test:permissions   # 03_nav/06_permissions.spec.js
+npm run test:notifications # 03_nav/07_notifications.spec.js
 
 # Single spec against a specific device
 
