@@ -52,7 +52,7 @@ Defines the test coverage and verification strategy for the Taqelah mobile appli
 | **TC-W03** | WebView Back returns to the app with state preserved | State Preservation | ✅ | ✅ |
 
 > **Tablet-specific implementations** (phone path is byte-identical to before):
-> - `getPinchCenterBrightness` uses a dark-pixel count across the full canvas on tablet (sparse icons in a wide canvas defeat a 3×3 brightness average).
+> - `getPinchCenterBrightness` uses a dense-scan dark-pixel count across the full canvas on both phone and tablet (unified 2026-05-11; the previous 3×3 brightness average on phone was fragile to icon-interior transparency — the magnifying glass lens center matched the mint background, so 3×3 samples missed the zoom change despite the icon visibly enlarging).
 > - `verifyCanvasHasContent` uses a dense canvas-wide scan on tablet (after pan, the icon moves ~1748px — well outside a small center cross).
 > - `scrollToDragSection` adds a single page bump on tablet, anchored to the white-space gap below `swipeCard(5)`, so all 5 drag items enter the accessibility tree after re-navigation.
 > - `DialogsPage._dialGeometry` uses a side-by-side dialog layout on tablet (header on the LEFT, dial canvas on the RIGHT). Detection: if vertical room between header.bottom and switchBtn.top is < 200px, treat as tablet. Tablet dial center anchored on Cancel button's horizontal center.

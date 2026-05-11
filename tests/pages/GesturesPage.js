@@ -258,62 +258,29 @@ class GesturesPage extends BasePage {
     const base64 = await this.driver.takeScreenshot();
     const png = PNG.sync.read(Buffer.from(base64, 'base64'));
 
-    // CI diagnostic: dump the raw screenshot + a JSON sidecar with sample
-    // coords so we can see exactly what the emulator rendered when TC-M08
-    // fails with brightness 227 before/after. Local doesn't write these
-    // (CI artifact path only).
-    if (process.env.CI) {
-      const fs = require('fs');
-      const path = require('path');
-      const dir = path.join(process.cwd(), 'test-results', 'diagnostics');
-      fs.mkdirSync(dir, { recursive: true });
-      const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-      fs.writeFileSync(path.join(dir, `pinch-${stamp}.png`), Buffer.from(base64, 'base64'));
-      fs.writeFileSync(path.join(dir, `pinch-${stamp}.json`), JSON.stringify({
-        screenWidth, screenHeight,
-        pngWidth: png.width, pngHeight: png.height,
-        label: { x: loc.x, y: loc.y, w: sz.width, h: sz.height },
-        canvasTop, canvasBottom, canvasHeight,
-        isTablet,
-      }, null, 2));
-    }
-
-    if (isTablet) {
-      // Dense scan: every 10px in both axes across the whole canvas.
-      let darkCount = 0;
-      for (let y = canvasTop; y < canvasBottom; y += 10) {
-        for (let x = loc.x; x < loc.x + sz.width; x += 10) {
-          const i = (png.width * y + x) * 4;
-          const brightness = Math.round((png.data[i] + png.data[i + 1] + png.data[i + 2]) / 3);
-          if (brightness < 180) darkCount++;
-        }
-      }
-      return darkCount;
-    }
-
-    // Phone: 3×3 brightness average, sampled across the FULL screen width
-    // (not the narrow "Pinch to Zoom" label's width). The label is typically
-    // narrower than the canvas underneath it, and on Pixel 6 (CI emulator)
-    // the canvas icon renders outside the label's x-range — sampling within
-    // label x left both before and after at ~227 (white margin) and the
-    // assertion failed despite the pinch firing correctly. Anchoring x on
-    // screen width hits the icon reliably on both Pixel 8 (local) and
-    // Pixel 6 (CI).
+    // Dense scan: count dark pixels every 10px across the full canvas
+    // (label.y+label.h → canvasBottom, full screen width). Robust to icon
+    // shape, position, and lens transparency — the magnifying glass icon
+    // has a dark border + handle but a mint-colored interior, so a sparse
+    // 3×3 brightness average can miss the zoom change entirely (verified
+    // via CI diagnostic dumps: brightness=227 before AND after even though
+    // the icon visibly enlarged). Counting dark pixels naturally registers
+    // "more icon area" after the zoom.
     //
-    // Account for any device-vs-screenshot resolution mismatch (rare, but
-    // safe): scale x/y by the screenshot's actual dimensions.
-    const xScale = png.width / screenWidth;
-    const yScale = png.height / screenHeight;
-    const cols = [0.25, 0.5, 0.75].map(p => Math.round(screenWidth * p * xScale));
-    const rows = [0.25, 0.5, 0.75].map(p => Math.round((canvasTop + canvasHeight * p) * yScale));
-    let total = 0;
-    for (const x of cols) {
-      for (const y of rows) {
+    // Unified path for phone + tablet — the previous tablet-specific branch
+    // was added for a wide-canvas issue; the underlying brittleness it
+    // worked around (sparse-icon-misses-3×3-grid) is the same problem the
+    // phone exhibits on CI's Pixel 6 emulator. Density 10px works on both.
+    let darkCount = 0;
+    for (let y = canvasTop; y < canvasBottom; y += 10) {
+      for (let x = 0; x < screenWidth; x += 10) {
         const i = (png.width * y + x) * 4;
-        total += Math.round((png.data[i] + png.data[i + 1] + png.data[i + 2]) / 3);
+        const brightness = Math.round((png.data[i] + png.data[i + 1] + png.data[i + 2]) / 3);
+        if (brightness < 180) darkCount++;
       }
     }
-    return Math.round(total / 9);
+    void isTablet; // retained for diagnostic JSON only
+    return darkCount;
   }
 
   /**
