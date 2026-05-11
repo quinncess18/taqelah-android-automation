@@ -15,6 +15,7 @@
     "test:dialogs": "npx playwright test tests/specs/03_nav/04_dialogs.spec.js",
     "test:form": "npx playwright test tests/specs/03_nav/05_form.spec.js",
     "test:permissions": "npx playwright test tests/specs/03_nav/06_permissions.spec.js",
+    "test:notifications": "npx playwright test tests/specs/03_nav/07_notifications.spec.js",
     "appium:start": "npx appium --allow-insecure adb_shell"
   },
   "dependencies": {
