@@ -258,6 +258,26 @@ class GesturesPage extends BasePage {
     const base64 = await this.driver.takeScreenshot();
     const png = PNG.sync.read(Buffer.from(base64, 'base64'));
 
+    // CI diagnostic: dump the raw screenshot + a JSON sidecar with sample
+    // coords so we can see exactly what the emulator rendered when TC-M08
+    // fails with brightness 227 before/after. Local doesn't write these
+    // (CI artifact path only).
+    if (process.env.CI) {
+      const fs = require('fs');
+      const path = require('path');
+      const dir = path.join(process.cwd(), 'test-results', 'diagnostics');
+      fs.mkdirSync(dir, { recursive: true });
+      const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      fs.writeFileSync(path.join(dir, `pinch-${stamp}.png`), Buffer.from(base64, 'base64'));
+      fs.writeFileSync(path.join(dir, `pinch-${stamp}.json`), JSON.stringify({
+        screenWidth, screenHeight,
+        pngWidth: png.width, pngHeight: png.height,
+        label: { x: loc.x, y: loc.y, w: sz.width, h: sz.height },
+        canvasTop, canvasBottom, canvasHeight,
+        isTablet,
+      }, null, 2));
+    }
+
     if (isTablet) {
       // Dense scan: every 10px in both axes across the whole canvas.
       let darkCount = 0;

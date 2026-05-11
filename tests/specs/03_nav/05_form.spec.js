@@ -5,6 +5,32 @@ const { NavMenuPage } = require('../../pages/NavMenuPage');
 const { FormValidationPage } = require('../../pages/FormValidationPage');
 const testData = require('../../data/form-validation');
 
+// CI diagnostic: wrap a toast/element wait so a failure dumps the
+// screenshot + the offending UI tree to test-results/diagnostics/
+// (uploaded as CI artifact). Local runs are unaffected.
+async function waitForToastOrDump(driver, selector, label) {
+  try {
+    await (await driver.$(selector)).waitForDisplayed({ timeout: 10000 });
+  } catch (err) {
+    if (process.env.CI) {
+      const fs = require('fs');
+      const path = require('path');
+      const dir = path.join(process.cwd(), 'test-results', 'diagnostics');
+      fs.mkdirSync(dir, { recursive: true });
+      const stamp = `${label}-${Date.now()}`;
+      try {
+        const base64 = await driver.takeScreenshot();
+        fs.writeFileSync(path.join(dir, `${stamp}.png`), Buffer.from(base64, 'base64'));
+      } catch {}
+      try {
+        const pageSource = await driver.getPageSource();
+        fs.writeFileSync(path.join(dir, `${stamp}.xml`), pageSource);
+      } catch {}
+    }
+    throw err;
+  }
+}
+
 // An open soft keyboard shrinks the scrollable viewport and can hide the
 // bottom-fold (Submit/Reset) from both tap and the a11y tree.
 async function hideKeyboard(driver) {
@@ -131,7 +157,7 @@ test.describe('Navigation - Form Validation Suite (TC-F01-F06)', () => {
     expect(await formPage.getTimeText()).toMatch(/^10:30\s*PM$/i);
 
     await formPage.submit();
-    await (await driver.$(formPage.toastSuccess)).waitForDisplayed({ timeout: 10000 });
+    await waitForToastOrDump(driver, formPage.toastSuccess, 'F02-toastSuccess');
 
     // Pause for the success Snackbar to clear (~4s in this app) BEFORE
     // Reset — a visible toast intercepts the Reset tap region and the
@@ -159,7 +185,7 @@ test.describe('Navigation - Form Validation Suite (TC-F01-F06)', () => {
     await hideKeyboard(driver);
     await scrollToBottom(driver, formPage);
     await formPage.submit();
-    await (await driver.$(formPage.toastTermsRequired)).waitForDisplayed({ timeout: 10000 });
+    await waitForToastOrDump(driver, formPage.toastTermsRequired, 'F03-toastTermsRequired');
 
     // Wait for Terms-required toast to clear before the second submit so it
     // doesn't intercept the Terms tap region.
@@ -169,7 +195,7 @@ test.describe('Navigation - Form Validation Suite (TC-F01-F06)', () => {
     await formPage.toggleTerms();
     await scrollToBottom(driver, formPage);
     await formPage.submit();
-    await (await driver.$(formPage.toastSuccess)).waitForDisplayed({ timeout: 10000 });
+    await waitForToastOrDump(driver, formPage.toastSuccess, 'F03-toastSuccess');
 
     // Pause for success toast to clear before Reset (see F02 comment).
     await driver.pause(4000);
