@@ -23,6 +23,7 @@ Each module's supported Android API range is an explicit contract. A new module 
 | Form Validation (03/05) | 29 | 35 | Each TC self-resets via back+re-enter (2026-05-12); no cascade fragility. |
 | Permissions (03/06) | 29 | 35 | API-29 fallbacks retained (AOSP "Don't ask again" checkbox, generic Allow); inactive on API 33+ via try/catch gating. |
 | **Notifications (03/07)** | **33** | **35** | `POST_NOTIFICATIONS` is API 33+ only. Tests would all `waitForDialog` timeout on API ≤ 32. CI MUST run API 33+ for this module to verify. |
+| Tabs & Navigation (03/08) | 29 | 35 | No version-gated APIs. Pager swipe geometry (`y = height * 0.55`) works on phone + tablet without branching. |
 
 **Operating contract:**
 - Adding a new module → declare its min API + reason. If hardware-feature-gated, document the workaround.
@@ -140,7 +141,20 @@ Each module's supported Android API range is an explicit contract. A new module 
 > **Card-status truth:** OK changes the card to "Dialog action tapped!"; LATER and scrim dismissal leave the card at "In-app dialog shown!" (no separate "dismissed" status). LATER vs scrim are indistinguishable by card text — TC-NT01 covers LATER as the "close-without-action" path; scrim is intentionally not tested (no unique state).
 > **Pixel Tablet (emulator-5556, API 35) prerequisite:** Grant `ACCESS_FINE_LOCATION` / `ACCESS_COARSE_LOCATION` to `io.appium.settings` before any test run — its ForegroundService is declared with type=location and crashes on API 34+ without those perms, breaking Appium session init.
 
-## 8. Shopping Cart (planned)
+## 8. Tabs & Navigation
+| Test ID | Description | Strategy | Pixel 8 | Pixel Tablet |
+| :--- | :--- | :--- | :---: | :---: |
+| **TC-T01** | Default load — Back, title, 3 top tabs visible, Feed selected, Page 1 of 3 hint | UI Assertion | ✅ | ✅ |
+| **TC-T02** | Feed pager — swipe 1→2→3, no overshoot past Page 3, swipe back to Page 2 preserved | Gesture + State | ✅ | ✅ |
+| **TC-T03** | Search tab — selected state moves, static body text `Search Tab Content` shown | UI Assertion | ✅ | ✅ |
+| **TC-T04** | Profile tab + nested bottom nav — Home/Favorites/Settings toggle, body text follows `<Name> Section` | UI Assertion | ✅ | ✅ |
+| **TC-T05** | Cross-tab reset — Feed→Page 2 → Search → Feed → pager resets to Page 1 | State Reset | ✅ | ✅ |
+| **TC-T06** | Back+re-enter reset — Feed→Page 3 → Back → re-enter via drawer → pager resets to Page 1 | State Reset | ✅ | ✅ |
+
+> **Cascade flow:** Single `beforeAll` entry; TCs cascade in-screen (T01→T05) without exiting. Only TC-T06 deliberately leaves the page to test the back+re-enter reset path. TC-T05 explicitly taps Feed at start because TC-T04 leaves the screen on Profile/Settings.
+> **Pager swipe geometry:** Horizontal swipe band at `y = height * 0.55` works on both phone and tablet — well below the top tab strip and above the bottom-nav region (Profile tab). No device-specific branch needed.
+
+## 9. Shopping Cart (planned)
 
 | Test ID | Description | Strategy | Status |
 | :--- | :--- | :--- | :---: |
@@ -148,7 +162,7 @@ Each module's supported Android API range is an explicit contract. A new module 
 | **TC-S02** | Update item quantity in cart | UI Interaction | ⏳ |
 | **TC-S03** | Remove item from cart | UI Interaction | ⏳ |
 
-## 9. Checkout (planned)
+## 10. Checkout (planned)
 
 
 | Test ID | Description | Strategy | Status |
