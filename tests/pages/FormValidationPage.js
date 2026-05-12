@@ -201,6 +201,15 @@ class FormValidationPage extends BasePage {
     await this.driver.pause(200);
     await el.addValue(value);
     await this.driver.pause(200);
+    // Dismiss the soft keyboard before returning. While the keyboard is
+    // up Compose collapses unfocused fields and the scrollable container
+    // from the a11y tree (verified via CI run 25711364179 dump: 0 EditText
+    // nodes despite the form being visually intact). Without this, the
+    // NEXT typeIntoField's instance(N) selector resolves against a
+    // narrowed tree and can land on the wrong field — e.g. Phone value
+    // ending up in the Number field on CI's slower Compose render.
+    try { await this.driver.hideKeyboard(); } catch { /* keyboard not up */ }
+    await this.driver.pause(300);
   }
 
   /**

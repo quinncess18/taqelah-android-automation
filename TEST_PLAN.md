@@ -108,6 +108,10 @@ Each module's supported Android API range is an explicit contract. A new module 
 > **Note:** Date and Time pickers in Form Validation reuse the same dialog popups from Dialogs & Alerts. See section 4 for Date/Time interaction details.
 > 
 > **Error messages:** Name="Name is required", Email="Email is required" / "Enter a valid email", Phone="Phone is required" / "At least 10 digits", Number="Required" / "Enter 1-100", Password="Password is required" / "Min 6 characters", Category="Please select a category", Terms="Please accept the terms" (toast). Success toast: "Form submitted successfully!"
+>
+> **Field typing reliability (2026-05-12):** `typeIntoField` dismisses the soft keyboard after every field via `driver.hideKeyboard()`. While the keyboard is up, Compose collapses unfocused EditTexts AND the scrollable container from the a11y tree on slower CI emulators; the next field's `instance(N)` selector then resolves against a near-empty tree and can land on the wrong field. Input selectors are also wrapped in `UiScrollable.scrollIntoView` as defense-in-depth. See CLAUDE.md → "Form input fields — keyboard dismiss between fields" for the full diagnosis.
+>
+> **TC isolation (2026-05-12):** F02–F06 each self-reset via back+re-enter at the start of the TC. Cascading state across TCs proved fragile on slower CI emulators — a flake in F03 would cascade through F04/F05. Trade-off: ~+10s per TC for deterministic isolation.
 
 ## 6. Permissions
 | Test ID | Description | Strategy | Pixel 8 | Pixel Tablet |
