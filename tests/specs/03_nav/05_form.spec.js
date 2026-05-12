@@ -225,6 +225,13 @@ test.describe('Navigation - Form Validation Suite (TC-F01-F06)', () => {
     await formPage.submit();
     await formPage.resetToTop();
 
+    // Gate the isVisible probes on errorName actually rendering — on slow
+    // CI Compose, the required-error labels can lag behind the submit by a
+    // few hundred ms, causing the first .toBe(true) to fail against an
+    // empty a11y tree. Waiting for one error to land confirms the rest
+    // have rendered before we probe them.
+    await formPage.waitForDisplayed(formPage.errorName, 5000);
+
     expect(await formPage.isVisible(formPage.errorName)).toBe(true);
     expect(await formPage.isVisible(formPage.errorEmailRequired)).toBe(true);
     expect(await formPage.isVisible(formPage.errorPhoneRequired)).toBe(true);
