@@ -104,14 +104,32 @@ class CameraPage extends BasePage {
   }
 
   async waitForPageLoad() {
-    // Wait for the full Camera screen render, not just the header — on the CI
-    // API 34 emulator the bottom flip button (clickable instance 2) lands in
-    // the a11y tree a moment after the shutter, so an assertion that checks
-    // flipBtn immediately after waitForPageLoad can race and find it absent.
-    // Waiting for both shutter and flip eliminates that race.
+    // Anchor only on the screen title — the universal element across all
+    // Camera states (live preview, captured, denied). State-specific widgets
+    // get their own waits (waitForLivePreview / waitForDeniedState) so a
+    // denied-path entry doesn't hang waiting for shutter/flip that will
+    // never appear.
     await this.waitForDisplayed(this.screenTitle, 15000);
-    await this.waitForDisplayed(this.shutterBtn, 10000);
-    await this.waitForDisplayed(this.flipBtn, 10000);
+  }
+
+  /**
+   * Wait for the live-preview state to fully render. Use after granting Camera
+   * permission. On CI's API 34 emulator the flip button (clickable instance 2)
+   * lands in the a11y tree a moment after the shutter, so we wait for both.
+   */
+  async waitForLivePreview() {
+    await this.waitForDisplayed(this.screenTitle, 15000);
+    await this.waitForDisplayed(this.shutterBtn, 15000);
+    await this.waitForDisplayed(this.flipBtn, 15000);
+  }
+
+  /**
+   * Wait for the denied state to render. Use after a Camera deny.
+   */
+  async waitForDeniedState() {
+    await this.waitForDisplayed(this.screenTitle, 15000);
+    await this.waitForDisplayed(this.permissionDeniedText, 10000);
+    await this.waitForDisplayed(this.openSettingsBtn, 10000);
   }
 
   /**

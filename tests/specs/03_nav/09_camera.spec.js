@@ -50,7 +50,7 @@ test.describe('Navigation - Camera Suite — Granted Path (TC-CM01-CM04)', () =>
     cameraPage = await gotoCameraFresh(driver);
     // One-time grant for the whole group — both Camera + Audio dialogs.
     await cameraPage.acceptCameraAndAudio();
-    await cameraPage.waitForPageLoad();
+    await cameraPage.waitForLivePreview();
   });
 
   test('TC-CM01: should reveal the live preview with shutter and flip buttons after granting Camera + Audio', async () => {
@@ -115,7 +115,7 @@ test.describe('Navigation - Camera Suite — Denied Path (TC-CM05-CM07)', () => 
   test('TC-CM05: should show "Camera permission denied" + "Open Settings" after a single dialog deny', async () => {
     expect(await cameraPage.isDialogDisplayed()).toBe(true);
     await cameraPage.denyCamera();
-    await cameraPage.waitForPageLoad();
+    await cameraPage.waitForDeniedState();
 
     expect(await cameraPage.isVisible(cameraPage.permissionDeniedText)).toBe(true);
     expect(await cameraPage.isVisible(cameraPage.openSettingsBtn)).toBe(true);
@@ -132,14 +132,14 @@ test.describe('Navigation - Camera Suite — Denied Path (TC-CM05-CM07)', () => 
 
     await cameraPage.waitForDialog();
     await cameraPage.denyCamera();
-    await cameraPage.waitForPageLoad();
+    await cameraPage.waitForDeniedState();
 
     // 3rd entry — the dialog must NOT appear (permanent denial).
     await driver.$(cameraPage.backBtn).click();
     await driver.pause(1000);
     await navMenu.open();
     await navMenu.navigateTo(navMenu.navCamera);
-    await cameraPage.waitForPageLoad();
+    await cameraPage.waitForDeniedState();
 
     expect(await cameraPage.isDialogDisplayed()).toBe(false);
     expect(await cameraPage.isVisible(cameraPage.permissionDeniedText)).toBe(true);
