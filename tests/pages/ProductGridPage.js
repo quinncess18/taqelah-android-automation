@@ -200,13 +200,37 @@ class ProductGridPage extends BasePage {
   async verifyFullCatalogIntegrity() {
     let collectedItems = new Set();
     let scrollCount = 0;
-    const maxFlicks = 35; 
+    const maxFlicks = 35;
     const totalGoal = 32;
 
     const { width, height } = await this.driver.getWindowRect();
     const isTablet = width > 1200;
     const safeX = Math.round(width * 0.3);
-    const swipeDepth = isTablet ? 0.75 : 0.55; 
+    const swipeDepth = isTablet ? 0.75 : 0.55;
+
+    // CI diagnostic: dump screenshot + collected-items state every 5 flicks
+    // so we can see what Pixel 6 is rendering when integrity scan deadlocks.
+    // Local doesn't write these.
+    const ciDiag = process.env.CI ? require('fs') : null;
+    const ciStamp = Date.now();
+    const dumpCatalog = (label) => {
+      if (!ciDiag) return;
+      try {
+        const path = require('path');
+        const dir = path.join(process.cwd(), 'test-results', 'diagnostics');
+        ciDiag.mkdirSync(dir, { recursive: true });
+        this.driver.takeScreenshot().then(b64 => {
+          ciDiag.writeFileSync(path.join(dir, `catalog-${ciStamp}-${label}.png`), Buffer.from(b64, 'base64'));
+        }).catch(() => {});
+        ciDiag.writeFileSync(path.join(dir, `catalog-${ciStamp}-${label}.json`), JSON.stringify({
+          collectedCount: collectedItems.size,
+          totalGoal,
+          scrollCount,
+          collectedNames: Array.from(collectedItems),
+          screenWidth: width, screenHeight: height,
+        }, null, 2));
+      } catch {}
+    };
 
     while (collectedItems.size < totalGoal && scrollCount < maxFlicks) {
       const items = await this.driver.$$(this.clickableItems);
@@ -216,6 +240,9 @@ class ProductGridPage extends BasePage {
           collectedItems.add(desc.split('\n')[0]);
         }
       }
+
+      // Dump every 5 flicks (0, 5, 10, ...) so we can see scroll progress on CI
+      if (scrollCount % 5 === 0) dumpCatalog(`flick${String(scrollCount).padStart(2, '0')}`);
 
       if (collectedItems.size >= totalGoal) break;
 
@@ -265,7 +292,10 @@ class ProductGridPage extends BasePage {
         collectedItems.add(desc.split('\n')[0]);
       }
     }
-    
+
+    // Final CI diagnostic dump — captures end-state regardless of pass/fail
+    dumpCatalog('final');
+
     return collectedItems.size >= totalGoal;
   }
 }
