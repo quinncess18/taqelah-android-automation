@@ -217,9 +217,20 @@ test.describe('Navigation - Form Validation Suite (TC-F01-F06)', () => {
   });
 
   test('TC-F05: should show format-error messages for invalid fields (no Reset; Name stays valid)', async ({ driver }) => {
-    // Cascading from F04 — form is empty + required errors visible. Fill a
-    // valid Name (different value to vary coverage) and INVALID values for
-    // Email/Phone/Number/Password. Toggle Terms ON so format errors fire
+    // Self-reset (was cascading from F04). CI exposed cascade fragility:
+    // when F03's terms-toast wait flakes on slow Compose render, F04 inherits
+    // a partial submit + Terms ON state, then F05 inherits THAT — and its
+    // .toBe(true) assertions on format-error visibility fail until retry.
+    // Back + re-enter guarantees a clean default form regardless of upstream
+    // state (same reset mechanism F06 uses to verify default state).
+    await driver.back();
+    await driver.pause(1000);
+    await navMenu.open();
+    await navMenu.navigateTo(navMenu.navForm);
+    await formPage.waitForPageLoad();
+
+    // Fill a valid Name (different value to vary coverage) and INVALID values
+    // for Email/Phone/Number/Password. Toggle Terms ON so format errors fire
     // (otherwise the Terms toast preempts field validation).
     await formPage.enterName(testData.valid.altName);
     await formPage.enterEmail(testData.invalid.emails[0]);            // "notanemail"
