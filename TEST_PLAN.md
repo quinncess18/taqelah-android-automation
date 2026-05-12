@@ -24,6 +24,7 @@ Each module's supported Android API range is an explicit contract. A new module 
 | Permissions (03/06) | 29 | 35 | API-29 fallbacks retained (AOSP "Don't ask again" checkbox, generic Allow); inactive on API 33+ via try/catch gating. |
 | **Notifications (03/07)** | **33** | **35** | `POST_NOTIFICATIONS` is API 33+ only. Tests would all `waitForDialog` timeout on API ≤ 32. CI MUST run API 33+ for this module to verify. |
 | Tabs & Navigation (03/08) | 29 | 35 | No version-gated APIs. Pager swipe geometry (`y = height * 0.55`) works on phone + tablet without branching. |
+| Camera (03/09) | 30 | 35 | Uses Android 11+ "While using the app" permission dialog (`permission_allow_foreground_only_button`). API 29 fallbacks not retained — the DemoApp's Camera screen targets the modern foreground-only model. |
 
 **Operating contract:**
 - Adding a new module → declare its min API + reason. If hardware-feature-gated, document the workaround.
@@ -154,7 +155,25 @@ Each module's supported Android API range is an explicit contract. A new module 
 > **Cascade flow:** Single `beforeAll` entry; TCs cascade in-screen (T01→T05) without exiting. Only TC-T06 deliberately leaves the page to test the back+re-enter reset path. TC-T05 explicitly taps Feed at start because TC-T04 leaves the screen on Profile/Settings.
 > **Pager swipe geometry:** Horizontal swipe band at `y = height * 0.55` works on both phone and tablet — well below the top tab strip and above the bottom-nav region (Profile tab). No device-specific branch needed.
 
-## 9. Shopping Cart (planned)
+## 9. Camera
+| Test ID | Description | Strategy | Pixel 8 | Pixel Tablet |
+| :--- | :--- | :--- | :---: | :---: |
+| **TC-CM01** | Grant Camera + Audio → live preview header, shutter, flip visible | Permission Flow + UI Assertion | ✅ | ✅ |
+| **TC-CM02** | Tap shutter → "Photo Captured!" chip + transient toast matching `^Photo saved: CAP\d+\.jpg$` | Side-effect Capture | ✅ | ✅ |
+| **TC-CM03** | Header Back arrow on captured state returns to live preview (intra-screen) | State Reset | ✅ | ✅ |
+| **TC-CM04** | Tap flip-camera button → no crash, live preview UI intact (smoke; SurfaceView has no a11y diff between back/front cameras) | Smoke | ✅ | ✅ |
+| **TC-CM05** | Deny camera dialog (single deny) → "Camera permission denied" + "Open Settings" | Permission Denial | ✅ | ✅ |
+| **TC-CM06** | Deny twice with leave+return between → 3rd entry has no dialog (permanent denial) → denied state persists | Sequential Persistence | ✅ | ✅ |
+| **TC-CM07** | Tap "Open Settings" from denied state → Android Settings (`com.android.settings`) is foreground app | Intent Verification | ✅ | ✅ |
+
+> **Two-reset model:** Spec splits into Granted Path (CM01–CM04, one `pm clear` + one grant, cascade) and Denied Path (CM05–CM07, one `pm clear` + deny inline). Six per-test resets would burn ~2 min of overhead; this version completes in ~1.6 min.
+> **`pm clear` reset:** Same rationale as Notifications — the DemoApp tracks the "asked Camera?" flag in SharedPreferences, so `pm reset-permissions` alone leaves the dialog suppressed across runs. `pm clear` wipes the flag + login state; spec re-authenticates via `LoginPage.login()`.
+> **Camera screen NAF widgets:** Shutter (View), flip (Button), and the captured-state buttons are NAF=true with no `content-desc` / `resource-id` set at all. Selected by **clickable-instance order** (`UiSelector().clickable(true).instance(N)`): index 0 = header Back, 1 = shutter/back-arrow (state-dependent), 2 = flip. This is the most stable selector handle without dropping to coordinate taps.
+> **Header Back arrow is context-aware:** In the captured-photo state it returns to live preview (intra-screen). In the live state it exits the Camera screen entirely. TC-CM03 exercises the captured→live transition. The bottom in-screen left button at `[160,2190][286,2316]` is likely retake/delete and is not part of our coverage.
+> **Flip-camera tutorial overlay (emulator only):** First flip-to-front-camera on the Android Studio emulator injects an "Entering camera mode" tutorial modal. NOT a DemoApp UI element; on real devices it never appears. `CameraPage.dismissEmulatorTutorialIfPresent()` ticks "Don't remind again" and dismisses, gating the whole spec behind one no-op call on real devices.
+> **Open Settings verification:** Uses `driver.getCurrentPackage()` (UiAutomator2 native) instead of `mobile: shell dumpsys` — the latter returns truncated output via Appium's shell channel.
+
+## 10. Shopping Cart (planned)
 
 | Test ID | Description | Strategy | Status |
 | :--- | :--- | :--- | :---: |
@@ -162,7 +181,7 @@ Each module's supported Android API range is an explicit contract. A new module 
 | **TC-S02** | Update item quantity in cart | UI Interaction | ⏳ |
 | **TC-S03** | Remove item from cart | UI Interaction | ⏳ |
 
-## 10. Checkout (planned)
+## 11. Checkout (planned)
 
 
 | Test ID | Description | Strategy | Status |

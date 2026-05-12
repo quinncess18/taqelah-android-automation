@@ -13,8 +13,9 @@ Production-grade automation framework for the **Taqelah Boutique** Flutter appli
 - **Permissions:** ✅ TC-P01–P04 — Pixel 8 + Pixel Tablet (with transitional-state auto-wait for Location's "Getting location..." status resolution, force-stop + `am start -W` in `resetPermissions()`, 5s primary dialog timeout for the back-to-back Camera Video → Audio sequence on slower emulators, and scroll-safe persistence checks).
 - **Notifications:** ✅ TC-NT01–NT03 — Pixel 8 + Pixel Tablet. Covers OS dialog Allow / Don't allow / Permanent denial (2× deny → suppressed dialog → card reverts to "No notifications sent yet"). Shared `exerciseAllTriggers()` POM helper exercises system notifications (Instant, Schedule), in-app banner (DISMISS, VIEW), in-app dialog (LATER, OK), and in-app snackbar (VIEW). Uses `pm clear` reset (the DemoApp tracks "have we asked POST_NOTIFICATIONS?" in SharedPreferences — `pm reset-permissions` alone is insufficient); spec re-authenticates after `pm clear` wipes login state.
 - **Tabs & Navigation:** ✅ TC-T01–T06 — Pixel 8 + Pixel Tablet. Covers top tab strip (Feed pager / Search static / Profile nested bottom nav), Feed pager swipe bounds (1→2→3, no overshoot, back-swipe preserves intra-tab state), Profile's Home/Favorites/Settings toggle with `<Name> Section` body text, and pager state reset on cross-tab hop and screen exit. Cascade flow — single `beforeAll` entry, T01–T05 stay in-screen; only TC-T06 deliberately leaves the page to verify back+re-enter reset.
+- **Camera:** ✅ TC-CM01–CM07 — Pixel 8 + Pixel Tablet. Two-reset spec: Granted Path (CM01–CM04) covers live preview shutter + flip + "Photo Captured!" chip + `Photo saved: CAP<id>.jpg` toast + captured→live header-back-arrow transition; Denied Path (CM05–CM07) covers single deny → "Camera permission denied" + "Open Settings", 2× deny → permanent denial dialog suppression, and Open Settings deep-link to Android Settings via `driver.getCurrentPackage()`. Compose camera widgets are NAF=true with no content-desc/resource-id, so selectors anchor on clickable-instance order (header Back=0, shutter/back-arrow=1, flip=2). Emulator's "Entering camera mode" tutorial dismissed via `CameraPage.dismissEmulatorTutorialIfPresent()` — no-op on real devices.
 
-- **Upcoming:** Camera (`03_nav/09_camera`), Location (`03_nav/10_location`). Both require real-device cloud (BrowserStack) for meaningful coverage — emulators fake hardware sensors poorly.
+- **Upcoming:** Location (`03_nav/10_location`). Requires real-device cloud (LambdaTest / Firebase Test Lab) for meaningful coverage — emulator GPS is mocked.
 
 
 ## 🚀 Key Features
@@ -82,6 +83,7 @@ npm run test:form          # 03_nav/05_form.spec.js
 npm run test:permissions   # 03_nav/06_permissions.spec.js
 npm run test:notifications # 03_nav/07_notifications.spec.js
 npm run test:tabs          # 03_nav/08_tabs.spec.js
+npm run test:camera        # 03_nav/09_camera.spec.js
 
 # Single spec against a specific device
 
@@ -99,6 +101,7 @@ Each module declares its supported Android API range as an explicit contract.
 | Module | Min API | Notes |
 |---|---|---|
 | Auth, Catalog, Nav Main, Gestures, WebView, Dialogs, Form, Permissions, Tabs | 29 | All version-gated paths have fallbacks (e.g. PermissionsPage's API-29 AOSP UI selectors). |
+| Camera | 30 | Uses Android 11+ foreground-only permission dialog; API 29 fallbacks not retained. |
 | **Notifications** | **33** | `POST_NOTIFICATIONS` is API 33+. CI MUST run API 33+ for this module to verify. |
 
 See `TEST_PLAN.md → API Compatibility Matrix` for the operating contract (how to declare modules, what to do when bumping CI API).
