@@ -104,10 +104,14 @@ class CameraPage extends BasePage {
   }
 
   async waitForPageLoad() {
-    // Bumped from 10s → 15s for CI's slower API 34 emulator — the post-grant
-    // Compose render of the Camera screen lags behind the dialog dismiss
-    // animation on the GHA runner.
+    // Wait for the full Camera screen render, not just the header — on the CI
+    // API 34 emulator the bottom flip button (clickable instance 2) lands in
+    // the a11y tree a moment after the shutter, so an assertion that checks
+    // flipBtn immediately after waitForPageLoad can race and find it absent.
+    // Waiting for both shutter and flip eliminates that race.
     await this.waitForDisplayed(this.screenTitle, 15000);
+    await this.waitForDisplayed(this.shutterBtn, 10000);
+    await this.waitForDisplayed(this.flipBtn, 10000);
   }
 
   /**

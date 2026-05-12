@@ -172,6 +172,7 @@ Each module's supported Android API range is an explicit contract. A new module 
 > **Header Back arrow is context-aware:** In the captured-photo state it returns to live preview (intra-screen). In the live state it exits the Camera screen entirely. TC-CM03 exercises the captured→live transition. The bottom in-screen left button at `[160,2190][286,2316]` is likely retake/delete and is not part of our coverage.
 > **Flip-camera tutorial overlay (emulator only):** First flip-to-front-camera on the Android Studio emulator injects an "Entering camera mode" tutorial modal. NOT a DemoApp UI element; on real devices it never appears. `CameraPage.dismissEmulatorTutorialIfPresent()` ticks "Don't remind again" and dismisses, gating the whole spec behind one no-op call on real devices.
 > **Open Settings verification:** Uses `driver.getCurrentPackage()` (UiAutomator2 native) instead of `mobile: shell dumpsys` — the latter returns truncated output via Appium's shell channel.
+> **CI render timing tuning:** Audio-dialog wait extended to 10s (was 5s) and `waitForPageLoad` requires both shutter and flip buttons to be visible before returning, not just the screen title. The Audio dialog appears slowest on the GHA API-34 emulator (5-10s after Camera grant); the flip button lands in the a11y tree a moment after the shutter on the same render path. Without these guards CI run 25734329420 raced and failed TC-CM01.
 
 ## 10. Shopping Cart (planned)
 
