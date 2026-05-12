@@ -188,6 +188,13 @@ class FormValidationPage extends BasePage {
    */
   async typeIntoField(selector, value) {
     const el = await this.driver.$(selector);
+    // Wait for the field to enter the a11y tree before clicking. On slower
+    // CI Compose, the previous field's focus can transiently narrow the
+    // tree (instance(N) selectors stale momentarily — see
+    // feedback_compose_tree_narrowing). CI run 25708179594 hit this on
+    // TC-F02 first attempt: EditText.instance(1) (Email) was missing
+    // right after Name was typed. waitForDisplayed gives it time to land.
+    await el.waitForDisplayed({ timeout: 5000 });
     await el.click();
     await this.driver.pause(200);
     await el.clearValue();
