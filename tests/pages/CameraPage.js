@@ -104,7 +104,10 @@ class CameraPage extends BasePage {
   }
 
   async waitForPageLoad() {
-    await this.waitForDisplayed(this.screenTitle, 10000);
+    // Bumped from 10s → 15s for CI's slower API 34 emulator — the post-grant
+    // Compose render of the Camera screen lags behind the dialog dismiss
+    // animation on the GHA runner.
+    await this.waitForDisplayed(this.screenTitle, 15000);
   }
 
   /**
@@ -122,6 +125,12 @@ class CameraPage extends BasePage {
    * Accept the Camera permission flow — taps "While using the app" on the
    * Camera dialog, then on the back-to-back Audio dialog. Both dialogs use
    * the same PermissionController layout.
+   *
+   * Audio-dialog wait is 10s (was 5s) because CI's API 34 emulator on the
+   * GHA runner takes noticeably longer between Camera-grant and Audio-prompt
+   * than local API 35 does. After accepting, polls for screen-title render
+   * up to 5s — covers cases where the controller's dismiss animation outlasts
+   * the fixed pause.
    */
   async acceptCameraAndAudio() {
     // 1. Camera dialog.
@@ -129,14 +138,25 @@ class CameraPage extends BasePage {
     await (await this.driver.$(this.allowWhileUsingBtn)).click();
     await this.driver.pause(1500);
 
-    // 2. Audio dialog — back-to-back; gives the controller time to re-render.
+    // 2. Audio dialog — slower CI emulators can take 5-10s to surface this.
     try {
       const audioBtn = await this.driver.$(this.allowWhileUsingBtn);
-      await audioBtn.waitForDisplayed({ timeout: 5000 });
+      await audioBtn.waitForDisplayed({ timeout: 10000 });
       await audioBtn.click();
-      await this.driver.pause(1500);
+      await this.driver.pause(2500);
     } catch {
       // No audio dialog (Audio already granted from a prior session) — fine.
+    }
+
+    // 3. Guard: if any dialog is still on-screen (timing race or unexpected
+    // third prompt), give it one more accept attempt before handing back.
+    try {
+      if (await this.isDialogDisplayed()) {
+        await (await this.driver.$(this.allowWhileUsingBtn)).click();
+        await this.driver.pause(2000);
+      }
+    } catch {
+      // Dialog gone — fine.
     }
   }
 

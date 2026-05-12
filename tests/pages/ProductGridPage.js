@@ -208,6 +208,30 @@ class ProductGridPage extends BasePage {
     const safeX = Math.round(width * 0.3);
     const swipeDepth = isTablet ? 0.75 : 0.55;
 
+    // CI-only diagnostic dump every 5 flicks — TC-C04 keeps regressing on the
+    // GHA runner (commit 35c65e8 hit it again with 3 retries). Local doesn't
+    // write these.
+    const ciDiag = process.env.CI ? require('fs') : null;
+    const ciStamp = Date.now();
+    const dumpCatalog = (label) => {
+      if (!ciDiag) return;
+      try {
+        const path = require('path');
+        const dir = path.join(process.cwd(), 'test-results', 'diagnostics');
+        ciDiag.mkdirSync(dir, { recursive: true });
+        this.driver.takeScreenshot().then(b64 => {
+          ciDiag.writeFileSync(path.join(dir, `catalog-${ciStamp}-${label}.png`), Buffer.from(b64, 'base64'));
+        }).catch(() => {});
+        ciDiag.writeFileSync(path.join(dir, `catalog-${ciStamp}-${label}.json`), JSON.stringify({
+          collectedCount: collectedItems.size,
+          totalGoal,
+          scrollCount,
+          collectedNames: Array.from(collectedItems),
+          screenWidth: width, screenHeight: height,
+        }, null, 2));
+      } catch {}
+    };
+
     while (collectedItems.size < totalGoal && scrollCount < maxFlicks) {
       const items = await this.driver.$$(this.clickableItems);
       for (const item of items) {
@@ -216,6 +240,8 @@ class ProductGridPage extends BasePage {
           collectedItems.add(desc.split('\n')[0]);
         }
       }
+
+      if (scrollCount % 5 === 0) dumpCatalog(`flick${String(scrollCount).padStart(2, '0')}`);
 
       if (collectedItems.size >= totalGoal) break;
 
@@ -265,6 +291,8 @@ class ProductGridPage extends BasePage {
         collectedItems.add(desc.split('\n')[0]);
       }
     }
+
+    dumpCatalog('final');
 
     return collectedItems.size >= totalGoal;
   }
