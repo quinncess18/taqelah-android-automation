@@ -90,5 +90,16 @@ npx playwright test tests/specs/01_auth/01_functional.spec.js --project="Pixel 8
 npx playwright test --project="Pixel 8 (Local)" -g "TC-L01"
 ```
 
+## 🎯 Per-Module API Compatibility
+
+Each module declares its supported Android API range as an explicit contract.
+
+| Module | Min API | Notes |
+|---|---|---|
+| Auth, Catalog, Nav Main, Gestures, WebView, Dialogs, Form, Permissions | 29 | All version-gated paths have fallbacks (e.g. PermissionsPage's API-29 AOSP UI selectors). |
+| **Notifications** | **33** | `POST_NOTIFICATIONS` is API 33+. CI MUST run API 33+ for this module to verify. |
+
+See `TEST_PLAN.md → API Compatibility Matrix` for the operating contract (how to declare modules, what to do when bumping CI API).
+
 ## 📝 Documentation
-- [TEST_PLAN.md](./TEST_PLAN.md): Current test coverage and per-device verification status.
+- [TEST_PLAN.md](./TEST_PLAN.md): Current test coverage, per-device verification status, and the per-module API compatibility matrix.

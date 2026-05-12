@@ -398,10 +398,15 @@ class FormValidationPage extends BasePage {
   }
 
   /**
-   * Click the Submit button.
+   * Click the Submit button. Waits up to 8s for it to enter the a11y tree
+   * — on slower CI emulators (post-hideKeyboard + scrollToBottom), Compose
+   * may not have settled the Submit button into the tree yet by the time
+   * the spec calls submit(), which previously failed with "element wasn't
+   * found" (CI run 25705508677 TC-F03 first-attempt).
    */
   async submit() {
     const el = await this.driver.$(this.submitBtn);
+    await el.waitForDisplayed({ timeout: 8000 });
     await el.click();
     await this.driver.pause(500);
   }

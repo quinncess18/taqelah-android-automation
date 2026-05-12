@@ -169,6 +169,15 @@ test.describe('Navigation - Form Validation Suite (TC-F01-F06)', () => {
   });
 
   test('TC-F03: should reject Submit when Terms is OFF, then succeed after ticking Terms (consolidated)', async ({ driver }) => {
+    // Self-reset (was cascading from F02). See F05 for cascade-fragility
+    // rationale — when any upstream TC flakes, downstream TCs inherit dirty
+    // state. Back + re-enter guarantees clean default form.
+    await driver.back();
+    await driver.pause(1000);
+    await navMenu.open();
+    await navMenu.navigateTo(navMenu.navForm);
+    await formPage.waitForPageLoad();
+
     // Consolidated TC: fill the form with valid data through Category, leave
     // Terms OFF, Submit → Terms-required toast. Then tick Terms and Submit
     // again → success toast. Exercises both the Terms-required validation
@@ -203,7 +212,15 @@ test.describe('Navigation - Form Validation Suite (TC-F01-F06)', () => {
   });
 
   test('TC-F04: should show all required-field error messages when submitting an empty form', async ({ driver }) => {
-    // F03 left the form clean (post-Reset). Submit with everything empty.
+    // Self-reset (was cascading from F03's post-reset clean state). See F05
+    // for cascade-fragility rationale.
+    await driver.back();
+    await driver.pause(1000);
+    await navMenu.open();
+    await navMenu.navigateTo(navMenu.navForm);
+    await formPage.waitForPageLoad();
+
+    // Submit with everything empty.
     await scrollToBottom(driver, formPage);
     await formPage.submit();
     await formPage.resetToTop();

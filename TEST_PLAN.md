@@ -2,11 +2,32 @@
 
 Defines the test coverage and verification strategy for the Taqelah mobile application.
 
-**Current scope:** Android emulators — Pixel 8 (API 35, local) + Pixel Tablet (API 35, local) for full coverage; CI runs Pixel 6 profile at API 34 (Android 14, google_apis target). 55 TCs across 7 modules verified on local; CI is mid-migration from API 29 to API 34 with `retries: 2` to absorb emulator flake.
+**Current scope:** Android emulators — Pixel 8 (API 35, local) + Pixel Tablet (API 35, local) for full coverage; CI runs Pixel 6 profile at API 34 (Android 14, google_apis target). 55 TCs across 7 modules verified on local; CI on API 34 with `retries: 2` to absorb emulator flake.
 
 **Roadmap:** iOS platform support (iPhone 15 Pro, iPad) post-June workshop.
 
 > Status legend: ✅ Verified · ⚠️ Under investigation · ⏳ Pending · — Not applicable
+
+## API Compatibility Matrix
+
+Each module's supported Android API range is an explicit contract. A new module declares its minimum API and rationale; existing modules note any version-specific tuning or constraint that gates them. Tests outside a module's range MUST `test.skip` with a clear reason.
+
+| Module | Min API | Max API tested | Rationale / Constraint |
+|---|---|---|---|
+| Auth (01) | 29 | 35 | No version-gated APIs. |
+| Catalog (02) | 29 | 35 | No version-gated APIs. |
+| Nav Main (03/01) | 29 | 35 | No version-gated APIs. |
+| Gestures (03/02) | 29 | 35 | Pinch detection unified phone+tablet via dense-scan pixel count (2026-05-12). |
+| WebView (03/03) | 29 | 35 | DemoApp builds without `WebContentsDebuggingEnabled` — DOM verification unavailable across all versions. |
+| Dialogs (03/04) | 29 | 35 | Time Picker dial canvas tap-anchored selectors work across versions. |
+| Form Validation (03/05) | 29 | 35 | Each TC self-resets via back+re-enter (2026-05-12); no cascade fragility. |
+| Permissions (03/06) | 29 | 35 | API-29 fallbacks retained (AOSP "Don't ask again" checkbox, generic Allow); inactive on API 33+ via try/catch gating. |
+| **Notifications (03/07)** | **33** | **35** | `POST_NOTIFICATIONS` is API 33+ only. Tests would all `waitForDialog` timeout on API ≤ 32. CI MUST run API 33+ for this module to verify. |
+
+**Operating contract:**
+- Adding a new module → declare its min API + reason. If hardware-feature-gated, document the workaround.
+- Bumping CI's API level → audit this matrix. Any module's lower bound that now exceeds CI's API is a hard skip; lower bound that now exceeds local is a regression risk.
+- Migration history: CI was on API 29 prior to 2026-05-11; Notifications could not run there. Migration to API 34 unblocked Notifications and required tuning in Permissions (back-to-back dialog wait), Gestures (canvas sampling), Form (toast timing) — see CLAUDE.md.
 
 ## 1. Authentication Module
 | Test ID | Description | Strategy | Pixel 8 | Pixel Tablet |

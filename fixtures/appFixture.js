@@ -1,6 +1,32 @@
 const { test: base } = require('@playwright/test');
 const { remote } = require('webdriverio');
+const { execFileSync } = require('child_process');
 const { APPIUM_SERVER, APK_PATH, IPA_PATH, DEVICES } = require('../config/devices.config');
+
+/**
+ * Grant location perms to io.appium.settings on the given Android emulator.
+ *
+ * The Appium settings helper declares a ForegroundService with type=location;
+ * on Android API 34+ that requires runtime ACCESS_*_LOCATION granted before
+ * the service can start. Without it the helper crashes with SecurityException
+ * → Appium's instrumentation init fails before our session is created.
+ *
+ * Runs pre-session via raw adb (not mobile:shell) because the WebdriverIO
+ * session wouldn't have started yet. Cloud providers (no adb access) silently
+ * skip. CI workflow grants these separately too — this is belt-and-suspenders
+ * for local emulator boots where the developer would otherwise have to remember.
+ */
+function grantAppiumSettingsLocationPerms(udid) {
+  if (!udid || !String(udid).startsWith('emulator-')) return; // cloud/real-device — skip
+  const perms = ['android.permission.ACCESS_FINE_LOCATION', 'android.permission.ACCESS_COARSE_LOCATION'];
+  for (const perm of perms) {
+    try {
+      execFileSync('adb', ['-s', udid, 'shell', 'pm', 'grant', 'io.appium.settings', perm], { stdio: 'ignore' });
+    } catch {
+      // Already granted, or perm doesn't apply on this API level — either is fine.
+    }
+  }
+}
 
 /**
  * appFixture — creates one WebdriverIO Appium session per Playwright worker.
@@ -13,6 +39,12 @@ const test = base.extend({
       const isAndroid = device.platform === 'android';
 
       console.log(`[appFixture] Initializing ${device.platform.toUpperCase()} on ${device.name} (${device.udid})`);
+
+      // Pre-flight: grant io.appium.settings location perms on Android so its
+      // ForegroundService doesn't crash on API 34+ before our session starts.
+      if (isAndroid) {
+        grantAppiumSettingsLocationPerms(device.udid);
+      }
 
       const commonCaps = {
         'appium:deviceName': device.name,
