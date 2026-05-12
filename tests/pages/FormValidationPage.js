@@ -30,25 +30,25 @@ class FormValidationPage extends BasePage {
       : '~Form Validation';
 
     // ── Text Input Fields ──
-    this.nameInput = this.isAndroid
-      ? 'android=new UiSelector().className("android.widget.EditText").instance(0)'
-      : '~name-input';
+    // Anchored via UiScrollable.scrollIntoView so each field is reliably
+    // resolved regardless of current scroll position. Bare instance(N)
+    // selectors are fragile: when the soft keyboard pops up and Compose
+    // auto-scrolls, the previous field can drop from the a11y tree,
+    // shifting instance numbering — CI run 25709947969 hit this on
+    // TC-F02, where between enterEmail and enterPhone the tree narrowed
+    // such that instance(2) resolved to the Number field instead of
+    // Phone, and the Phone value got typed into Number. UiScrollable
+    // scans the whole scrollable container so instance(N) refers to the
+    // N-th EditText in DOM order, not the N-th currently visible.
+    const scrollEditText = (n) =>
+      `android=new UiScrollable(new UiSelector().scrollable(true).instance(0))` +
+      `.scrollIntoView(new UiSelector().className("android.widget.EditText").instance(${n}))`;
 
-    this.emailInput = this.isAndroid
-      ? 'android=new UiSelector().className("android.widget.EditText").instance(1)'
-      : '~email-input';
-
-    this.phoneInput = this.isAndroid
-      ? 'android=new UiSelector().className("android.widget.EditText").instance(2)'
-      : '~phone-input';
-
-    this.numberInput = this.isAndroid
-      ? 'android=new UiSelector().className("android.widget.EditText").instance(3)'
-      : '~number-input';
-
-    this.passwordInput = this.isAndroid
-      ? 'android=new UiSelector().className("android.widget.EditText").instance(4)'
-      : '~password-input';
+    this.nameInput     = this.isAndroid ? scrollEditText(0) : '~name-input';
+    this.emailInput    = this.isAndroid ? scrollEditText(1) : '~email-input';
+    this.phoneInput    = this.isAndroid ? scrollEditText(2) : '~phone-input';
+    this.numberInput   = this.isAndroid ? scrollEditText(3) : '~number-input';
+    this.passwordInput = this.isAndroid ? scrollEditText(4) : '~password-input';
 
     // ── Category Dropdown ──
     this.categoryBtn = this.isAndroid
