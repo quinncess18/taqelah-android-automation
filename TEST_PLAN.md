@@ -26,6 +26,7 @@ Each module's supported Android API range is an explicit contract. A new module 
 | Tabs & Navigation (03/08) | 29 | 35 | No version-gated APIs. Pager swipe geometry (`y = height * 0.55`) works on phone + tablet without branching. |
 | Camera (03/09) | 30 | 35 | Uses Android 11+ "While using the app" permission dialog (`permission_allow_foreground_only_button`). API 29 fallbacks not retained — the DemoApp's Camera screen targets the modern foreground-only model. |
 | **Location (03/10)** | 29 | 35 | No version-gated dialog widgets. **Pixel Tablet AVD skipped at runtime** (`width > 1200` → `test.skip`) — emulator-5556's GPS provider does not emit fixes within practical timeouts, so the Current Location card never renders even with OS permission granted. Module is Pixel 8 + CI Pixel 6 only until `mobile: setGeoLocation` injection or real-device cloud is wired. |
+| **Dark Mode (03/11)** | 29 | 35 | No version-gated widgets. Cross-cutting smoke that visits every previously-tested page in dark mode and validates AppBar background via 3-spot pixel sampling. Location step is skipped on Pixel Tablet only (inherits 10/Location's GPS limitation). |
 
 **Operating contract:**
 - Adding a new module → declare its min API + reason. If hardware-feature-gated, document the workaround.
@@ -197,7 +198,23 @@ Each module's supported Android API range is an explicit contract. A new module 
 > **Nav drawer pre-swipe:** `gotoLocationFresh()` issues one explicit downward swipe inside the drawer before `navigateTo` — Location is the last TEST SCREENS item and sits at the drawer's bottom edge on smaller form factors. `NavMenuPage.scrollToItem` only scrolls when `isDisplayed=false`, so an item visible-but-clipped passes the gate and gets a partial-hit tap. The pre-swipe centres the target. Same drawer-column math as `NavMenuPage.scrollToItem`.
 > **Open Settings verification:** Uses `driver.getCurrentPackage()`, identical to Camera. After return-from-Settings, TC-LO07 re-asserts the denied state to catch regressions where the deep-link incorrectly exits the app.
 
-## 11. Shopping Cart (planned)
+## 11. Dark Mode (cross-cutting smoke)
+
+| Test ID | Description | Strategy | Pixel 8 | Pixel Tablet |
+| :--- | :--- | :--- | :---: | :---: |
+| **TC-DK01** | Default state at Home — drawer Dark Mode toggle reports `checked=false`. Capture 3-spot **light baseline** at AppBar coords. Toggle ON → `checked=true`; Home avg brightness drops by ≥ 80 vs baseline. | Theme Toggle + Baseline Capture | ✅ | ✅ |
+| **TC-DK02** | Walk through every previously-tested page and verify each samples as dark (avg brightness < baseline − 80). Order: Catalog Landing → Shop All → Casual → Evening → Party → Boho → Cart → About (scroll → in-page Dark Mode Switch reports ON, synced with drawer) → Gestures → WebView (navigate-only, sample skipped) → Dialogs → Form → Permissions → Notifications → Tabs → Camera (deny dialog) → Location (deny dialog, Pixel 8 only). | Cross-Cutting Visual Smoke | ✅ | ✅ (Location step skipped) |
+| **TC-DK03** | Toggle OFF via drawer → `checked=false`. Dismiss → Home avg brightness within ±30 of original baseline. | Restoration | ✅ | ✅ |
+
+> **Sample geometry:** 3 points across the AppBar at fixed `Y = 0.07h` and `X = 0.6w / 0.75w / 0.9w` — right of any centered page title and, on Home, left of the cart icon. AppBar background is uniformly theme-aware on every screen; page-body sampling was abandoned because Catalog Landing's product imagery has dark colors even in light mode (initial baseline read 94 instead of the AppBar's 247).
+> **WebView sampling skipped:** The inner WebView content is web-themed, not app-themed. We still navigate in/out to confirm no crash under dark theme.
+> **About in-page toggle sync:** The About page exposes its own Dark Mode Switch (`AboutPage.darkModeSwitch`). Manually verified that flipping the drawer toggle also flips the in-page Switch; TC-DK02 asserts this state-sync after a `scrollToBottom()`.
+> **Location step on tablet:** Skipped per the 10/Location module's tablet limitation. The rest of DK02 runs identically on both devices.
+> **Single drawer trip per TC:** The original `beforeAll` "normalize to OFF" step was dropped because DK03 already leaves Dark Mode OFF at the end of every clean run. DK01 enters at default OFF; if a prior run was interrupted mid-walk and left dark ON, the first `expect(checked === false)` in DK01 fails clearly — surfacing the leak rather than silently masking it.
+> **Location pre-swipe:** Mirrored from `10_location.spec.js` — one drawer-column swipe before tapping Location so the tap target is centred instead of clipped at the drawer's bottom edge.
+> **Retry-tolerant returnHome:** `driver.back()` is called up to 3 times waiting for Home's `shopAllBtn`. Some module screens (Form's auto-focused EditText) raise the soft keyboard and the first back dismisses the keyboard rather than exiting the page; the retry absorbs this without per-module branching.
+
+## 12. Shopping Cart (planned)
 
 | Test ID | Description | Strategy | Status |
 | :--- | :--- | :--- | :---: |
@@ -205,7 +222,7 @@ Each module's supported Android API range is an explicit contract. A new module 
 | **TC-S02** | Update item quantity in cart | UI Interaction | ⏳ |
 | **TC-S03** | Remove item from cart | UI Interaction | ⏳ |
 
-## 12. Checkout (planned)
+## 13. Checkout (planned)
 
 
 | Test ID | Description | Strategy | Status |
