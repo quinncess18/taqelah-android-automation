@@ -1,0 +1,345 @@
+// @ts-check
+const { BasePage } = require('./BasePage');
+
+/**
+ * LocationPage — POM for the Location module.
+ *
+ * Permission flow on entry: single OS dialog (Precise/Approximate +
+ * While using / Only this time / Don't allow). No back-to-back dialog
+ * sequence (unlike Camera, which prompts Audio after Camera).
+ *
+ * Location screen states:
+ *   - Idle granted: header + Current Location card (Lat/Lng/Altitude/Speed/
+ *     Accuracy) + Refresh button + Start Tracking button. No tracking
+ *     indicator, no History section yet.
+ *   - Tracking: same as idle plus Stop Tracking (replaces Start) +
+ *     "Tracking location updates..." indicator + Location History section.
+ *     History entries appear as scrollable views with content-desc
+ *     "<lat>, <lng>\n<HH:mm:ss>\n±<n>m".
+ *   - Denied: header + "Location permission denied" + "Open Settings".
+ *
+ * History list is a Compose LazyColumn — only rendered (~visible)
+ * entries appear in the a11y tree. Use collectAllHistoryEntries() to
+ * scroll-and-dedupe across the full list.
+ *
+ * Refresh button is a confirmed no-op (does not produce history entries
+ * or change the Current Location card on emulator). Each Start Tracking
+ * tap inserts exactly one history entry, provided GPS dwell ≥ ~3s.
+ */
+class LocationPage extends BasePage {
+  /**
+   * @param {import('webdriverio').Browser} driver
+   */
+  constructor(driver) {
+    super(driver);
+
+    // ── Page header ──
+    this.screenTitle = this.isAndroid
+      ? 'android=new UiSelector().description("Location")'
+      : '~Location';
+
+    // ── Granted state widgets ──
+    this.startTrackingBtn = this.isAndroid
+      ? 'android=new UiSelector().description("Start Tracking")'
+      : '~Start Tracking';
+
+    this.stopTrackingBtn = this.isAndroid
+      ? 'android=new UiSelector().description("Stop Tracking")'
+      : '~Stop Tracking';
+
+    this.refreshBtn = this.isAndroid
+      ? 'android=new UiSelector().description("Refresh")'
+      : '~Refresh';
+
+    this.trackingIndicator = this.isAndroid
+      ? 'android=new UiSelector().description("Tracking location updates...")'
+      : '~tracking-indicator';
+
+    this.locationHistoryHeader = this.isAndroid
+      ? 'android=new UiSelector().description("Location History")'
+      : '~Location History';
+
+    // Current Location card content-desc concatenates all 5 fields with
+    // newlines. We match the prefix so a regex check on the full value
+    // can verify field presence.
+    this.currentLocationCard = this.isAndroid
+      ? 'android=new UiSelector().descriptionStartsWith("Current Location")'
+      : '~current-location-card';
+
+    // ── Denied state ──
+    this.permissionDeniedText = this.isAndroid
+      ? 'android=new UiSelector().description("Location permission denied")'
+      : '~location-permission-denied';
+
+    this.openSettingsBtn = this.isAndroid
+      ? 'android=new UiSelector().description("Open Settings")'
+      : '~open-settings';
+
+    // ── OS Permission Dialog (PermissionController) ──
+    this.allowWhileUsingBtn = this.isAndroid
+      ? 'android=new UiSelector().resourceId("com.android.permissioncontroller:id/permission_allow_foreground_only_button")'
+      : '~While using the app';
+
+    this.allowOneTimeBtn = this.isAndroid
+      ? 'android=new UiSelector().resourceId("com.android.permissioncontroller:id/permission_allow_one_time_button")'
+      : '~Only this time';
+
+    this.denyBtn = this.isAndroid
+      ? 'android=new UiSelector().resourceIdMatches(".*permission_deny.*")'
+      : "~Don't allow";
+
+    // Pacing — Start Tracking dwell must be long enough for the emulator
+    // GPS mock to return a fix and the entry to land in the History list.
+    // Scratch verified ≥3s reliable; using 3500ms for headroom.
+    this.startDwellMs = 3500;
+  }
+
+  // ── Page-load gates ──────────────────────────────────────────────────
+
+  /**
+   * Title-only wait. Universal across all Location states (idle, tracking,
+   * denied). State-specific widgets get their own waits below.
+   */
+  async waitForPageLoad() {
+    await this.waitForDisplayed(this.screenTitle, 15000);
+  }
+
+  /**
+   * Wait for the granted-state UI (post permission accept, pre Start Tracking).
+   */
+  async waitForGrantedIdle() {
+    // Card-render is gated on a GPS fix; the emulator GPS mock on the
+    // Pixel Tablet AVD takes ~10–15s to return on a cold session (Pixel 8
+    // is sub-second). The post-grant screen renders a centered spinner
+    // until then, with no a11y content beyond the header. 25s covers
+    // both devices with margin.
+    await this.waitForDisplayed(this.screenTitle, 15000);
+    await this.waitForDisplayed(this.currentLocationCard, 25000);
+    await this.waitForDisplayed(this.refreshBtn, 10000);
+    await this.waitForDisplayed(this.startTrackingBtn, 10000);
+  }
+
+  /**
+   * Wait for the tracking state (post Start Tracking tap).
+   */
+  async waitForTrackingState() {
+    await this.waitForDisplayed(this.screenTitle, 15000);
+    await this.waitForDisplayed(this.stopTrackingBtn, 10000);
+    await this.waitForDisplayed(this.trackingIndicator, 10000);
+  }
+
+  /**
+   * Wait for the denied-state UI (post permission deny).
+   */
+  async waitForDeniedState() {
+    await this.waitForDisplayed(this.screenTitle, 15000);
+    await this.waitForDisplayed(this.permissionDeniedText, 10000);
+    await this.waitForDisplayed(this.openSettingsBtn, 10000);
+  }
+
+  // ── OS Dialog ────────────────────────────────────────────────────────
+
+  async waitForDialog(timeout = 10000) {
+    await this.waitForDisplayed(this.allowWhileUsingBtn, timeout);
+  }
+
+  async isDialogDisplayed() {
+    return await this.isVisible(this.allowWhileUsingBtn);
+  }
+
+  /**
+   * Tap "While using the app" on the OS dialog. Single-dialog flow
+   * (Location does NOT have a back-to-back second prompt like Camera).
+   */
+  async acceptWhileUsing() {
+    await this.waitForDialog();
+    await (await this.driver.$(this.allowWhileUsingBtn)).click();
+    await this.driver.pause(2000);
+  }
+
+  /**
+   * Tap "Don't allow" on the OS dialog.
+   */
+  async denyLocation() {
+    await this.waitForDialog();
+    await (await this.driver.$(this.denyBtn)).click();
+    await this.driver.pause(1500);
+  }
+
+  // ── Tracking controls ────────────────────────────────────────────────
+
+  /**
+   * Tap Start Tracking and wait for the GPS fix to populate one history
+   * entry. Dwell is calibrated against the emulator GPS mock; real
+   * devices should respond within the same window.
+   */
+  async tapStartTracking() {
+    await (await this.driver.$(this.startTrackingBtn)).click();
+    await this.driver.pause(this.startDwellMs);
+  }
+
+  async tapStopTracking() {
+    await (await this.driver.$(this.stopTrackingBtn)).click();
+    await this.driver.pause(1000);
+  }
+
+  /**
+   * One Start→dwell→Stop cycle that verifies a new history entry actually
+   * landed. The emulator GPS mock occasionally fails to return a fix within
+   * the Start dwell on cold sessions, producing a no-op cycle. Up to
+   * `maxAttempts` retries are made; each retry re-extends the dwell.
+   *
+   * Returns the new total visible entry count for the caller to assert.
+   */
+  async cycleStartStop({ maxAttempts = 3 } = {}) {
+    // Use the newest entry's key (not count) to detect a successful insert:
+    // once the screen fold is full, adding a new entry pushes the oldest
+    // off-viewport, leaving the visible count unchanged. The newest-key
+    // always changes on a successful insert because timestamps are unique.
+    const before = await this.readVisibleHistory();
+    const beforeKey = before[0]?.key ?? null;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      await this.tapStartTracking();
+      await this.tapStopTracking();
+      const after = await this.readVisibleHistory();
+      const afterKey = after[0]?.key ?? null;
+      if (afterKey && afterKey !== beforeKey) return after.length;
+      console.log(`[LocationPage] cycleStartStop attempt ${attempt}/${maxAttempts} did not insert an entry (newest key unchanged: ${beforeKey}); retrying`);
+    }
+    return before.length;
+  }
+
+  async tapOpenSettings() {
+    await (await this.driver.$(this.openSettingsBtn)).click();
+    await this.driver.pause(2000);
+  }
+
+  // ── History parsing ──────────────────────────────────────────────────
+
+  /**
+   * Match history entries in the page source. content-desc format:
+   *   "<lat>, <lng>\n<HH:mm:ss>\n±<n>m"
+   * XML-encoded newlines appear as &#10;.
+   */
+  static get HISTORY_ENTRY_REGEX() {
+    return /content-desc="(-?\d+\.\d+, -?\d+\.\d+)&#10;(\d{2}:\d{2}:\d{2})&#10;±(\d+)m"/g;
+  }
+
+  /**
+   * Parse history entries from the currently-rendered page source.
+   * Returns entries in document order (newest first — LIFO display).
+   * Only includes entries currently in the a11y tree (LazyColumn
+   * virtualization may hide off-screen items). Use
+   * collectAllHistoryEntries() for the full list.
+   */
+  async readVisibleHistory() {
+    const xml = await this.driver.getPageSource();
+    const out = [];
+    const re = LocationPage.HISTORY_ENTRY_REGEX;
+    re.lastIndex = 0;
+    let m;
+    while ((m = re.exec(xml)) !== null) {
+      out.push({ coords: m[1], time: m[2], acc: m[3], key: `${m[2]}|${m[1]}|${m[3]}` });
+    }
+    return out;
+  }
+
+  /**
+   * Scroll the history list from top to bottom, deduping entries by
+   * `<time>|<coords>|<acc>` key. Returns entries sorted newest-first.
+   * Stops when a scroll produces no new entries.
+   */
+  async collectAllHistoryEntries({ maxScrolls = 3 } = {}) {
+    // The Location screen always loads at the top fold (Current Location
+    // card visible), so no pre-scroll is needed. We swipe up only as far
+    // as required to discover new entries, then restore with a single
+    // swipe down so the header Back button is back in viewport.
+    const seen = new Map();
+    for (let s = 0; s <= maxScrolls; s++) {
+      const entries = await this.readVisibleHistory();
+      const before = seen.size;
+      entries.forEach((e) => seen.set(e.key, e));
+      if (s > 0 && seen.size === before) break;
+      if (s < maxScrolls) await this._swipeUp();
+    }
+    await this.scrollHistoryToTop();
+    return [...seen.values()].sort((a, b) => b.time.localeCompare(a.time));
+  }
+
+  // ── Scroll helpers ───────────────────────────────────────────────────
+
+  async _swipeUp() {
+    const { width, height } = await this.driver.getWindowRect();
+    const x = Math.floor(width / 2);
+    await this.driver.performActions([{
+      type: 'pointer', id: 'f1', parameters: { pointerType: 'touch' },
+      actions: [
+        { type: 'pointerMove', duration: 0, x, y: Math.floor(height * 0.75) },
+        { type: 'pointerDown', button: 0 },
+        { type: 'pause', duration: 100 },
+        { type: 'pointerMove', duration: 400, x, y: Math.floor(height * 0.35) },
+        { type: 'pointerUp', button: 0 },
+      ],
+    }]);
+    await this.driver.releaseActions();
+    await this.driver.pause(500);
+  }
+
+  async _swipeDown() {
+    const { width, height } = await this.driver.getWindowRect();
+    const x = Math.floor(width / 2);
+    await this.driver.performActions([{
+      type: 'pointer', id: 'f1', parameters: { pointerType: 'touch' },
+      actions: [
+        { type: 'pointerMove', duration: 0, x, y: Math.floor(height * 0.35) },
+        { type: 'pointerDown', button: 0 },
+        { type: 'pause', duration: 100 },
+        { type: 'pointerMove', duration: 400, x, y: Math.floor(height * 0.75) },
+        { type: 'pointerUp', button: 0 },
+      ],
+    }]);
+    await this.driver.releaseActions();
+    await this.driver.pause(500);
+  }
+
+  /**
+   * Restore the page to the top fold (Current Location card + header
+   * Back visible). One downward swipe is sufficient because the history
+   * fold is short — the test never scrolls far below the bottom fold.
+   * Safe to call when already at top (no-op).
+   */
+  async scrollHistoryToTop() {
+    await this._swipeDown();
+  }
+
+  // ── Foreground / reset ───────────────────────────────────────────────
+
+  async getForegroundPackage() {
+    if (!this.isAndroid) return '';
+    return String(await this.driver.getCurrentPackage());
+  }
+
+  /**
+   * Reset app data + relaunch so the next entry re-prompts the OS
+   * Location dialog. Same `pm clear` pattern as Camera / Notifications:
+   * the DemoApp tracks "have we asked?" in SharedPreferences, so
+   * `pm reset-permissions` alone leaves the dialog suppressed.
+   *
+   * Side effect: wipes login → caller must re-authenticate.
+   */
+  async resetLocationPermission() {
+    if (!this.isAndroid) return;
+    await this.driver.execute('mobile: shell', {
+      command: 'pm',
+      args: ['clear', this.appPackage],
+    });
+    await this.driver.pause(2500);
+    await this.driver.execute('mobile: shell', {
+      command: 'am',
+      args: ['start', '-W', '-n', `${this.appPackage}/.MainActivity`],
+    });
+    await this.driver.pause(1500);
+  }
+}
+
+module.exports = { LocationPage };

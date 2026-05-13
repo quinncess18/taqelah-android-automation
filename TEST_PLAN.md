@@ -25,6 +25,7 @@ Each module's supported Android API range is an explicit contract. A new module 
 | **Notifications (03/07)** | **33** | **35** | `POST_NOTIFICATIONS` is API 33+ only. Tests would all `waitForDialog` timeout on API ≤ 32. CI MUST run API 33+ for this module to verify. |
 | Tabs & Navigation (03/08) | 29 | 35 | No version-gated APIs. Pager swipe geometry (`y = height * 0.55`) works on phone + tablet without branching. |
 | Camera (03/09) | 30 | 35 | Uses Android 11+ "While using the app" permission dialog (`permission_allow_foreground_only_button`). API 29 fallbacks not retained — the DemoApp's Camera screen targets the modern foreground-only model. |
+| **Location (03/10)** | 29 | 35 | No version-gated dialog widgets. **Pixel Tablet AVD skipped at runtime** (`width > 1200` → `test.skip`) — emulator-5556's GPS provider does not emit fixes within practical timeouts, so the Current Location card never renders even with OS permission granted. Module is Pixel 8 + CI Pixel 6 only until `mobile: setGeoLocation` injection or real-device cloud is wired. |
 
 **Operating contract:**
 - Adding a new module → declare its min API + reason. If hardware-feature-gated, document the workaround.
@@ -174,7 +175,29 @@ Each module's supported Android API range is an explicit contract. A new module 
 > **Open Settings verification:** Uses `driver.getCurrentPackage()` (UiAutomator2 native) instead of `mobile: shell dumpsys` — the latter returns truncated output via Appium's shell channel.
 > **CI render timing tuning:** Audio-dialog wait extended to 10s (was 5s) and `waitForPageLoad` requires both shutter and flip buttons to be visible before returning, not just the screen title. The Audio dialog appears slowest on the GHA API-34 emulator (5-10s after Camera grant); the flip button lands in the a11y tree a moment after the shutter on the same render path. Without these guards CI run 25734329420 raced and failed TC-CM01.
 
-## 10. Shopping Cart (planned)
+## 10. Location
+
+| Test ID | Description | Strategy | Pixel 8 | Pixel Tablet |
+| :--- | :--- | :--- | :---: | :---: |
+| **TC-LO01** | Cold entry → OS Location dialog visible (While using / Don't allow) | Permission Flow | ✅ | ⏭ Skipped |
+| **TC-LO02** | Grant "While using the app" → idle granted screen renders (Current Location card with Lat/Lng/Altitude/Speed/Accuracy + Refresh + Start Tracking) | UI Assertion | ✅ | ⏭ Skipped |
+| **TC-LO03** | Tap Start Tracking → "Stop Tracking" + "Tracking location updates..." indicator + Location History with first entry matching `<lat>, <lng>\n<HH:mm:ss>\n±<n>m` | State Transition | ✅ | ⏭ Skipped |
+| **TC-LO04** | 5 additional Start/Stop cycles → ≥ 6 total history entries (verify-and-retry per cycle), LIFO display order, end on stopped state (Start Tracking restored, indicator gone, Current Location card retained) | Accumulation + LIFO | ✅ | ⏭ Skipped |
+| **TC-LO05** | Back to Home + re-enter Location → no OS dialog (permission persists); History is **screen-session-scoped** and resets to 0 entries; first fresh Start/Stop adds exactly 1 entry (pre-exit entries are NOT restored) | Persistence Contract | ✅ | ⏭ Skipped |
+| **TC-LO06** | Single deny → "Location permission denied" + "Open Settings"; no Start Tracking / Current Location card | Permission Denial | ✅ | ⏭ Skipped |
+| **TC-LO07** | Tap Open Settings → `getCurrentPackage()` reports `com.android.settings`; back to app → denied state retained | Intent Verification + Return State | ✅ | ⏭ Skipped |
+| **TC-LO08** | Deny twice with leave+return between → 3rd entry has no dialog (permanent denial); denied state persists | Sequential Persistence | ✅ | ⏭ Skipped |
+
+> **Pixel Tablet skip:** `width > 1200` in each describe's `beforeAll` invokes `test.skip` with a verbose reason. Verified manually that on emulator-5556 with OS-level "Allow only while using the app" + "Use precise location" set, the Location screen renders only the centered loading spinner — no Current Location card appears within 60s. Issue is the AVD's underlying location service, not Appium or the DemoApp.
+> **Two-reset model:** Spec splits into Granted Path (LO01–LO05, one `pm clear` + grant once, cascade) and Denied Path (LO06–LO08, one `pm clear` + deny inline). Mirrors Camera's pattern.
+> **`pm clear` reset:** Same rationale as Camera / Notifications — the DemoApp tracks the "asked Location?" flag in SharedPreferences. Wipes login; spec re-authenticates via `LoginPage.login()`.
+> **History entry trigger:** Each Start Tracking tap inserts **exactly one** history entry provided GPS-fix dwell ≥ ~3s (`LocationPage.startDwellMs = 3500`). Refresh is a confirmed no-op on Android (does not modify Current Location or History). `cycleStartStop()` is verify-and-retry: it compares the newest entry's key before vs after each cycle and retries up to 3 times if the fix didn't land — necessary because the emulator GPS mock occasionally fails to return a fix within the dwell on cold sessions.
+> **History display vs storage:** Entries are appended at the **top** (LIFO). The history list is a Compose `LazyColumn` — only ~5 entries render at a time on Pixel 8; older entries require scrolling. `collectAllHistoryEntries()` scroll-and-dedupes across the full list. No eviction was observed at ≤ 10 entries.
+> **Screen-session scoping:** Exiting Location wipes the in-memory history. On re-entry the History section is not rendered until tracking is restarted; the first fresh Start adds exactly 1 entry. This is real app behavior, asserted by TC-LO05.
+> **Nav drawer pre-swipe:** `gotoLocationFresh()` issues one explicit downward swipe inside the drawer before `navigateTo` — Location is the last TEST SCREENS item and sits at the drawer's bottom edge on smaller form factors. `NavMenuPage.scrollToItem` only scrolls when `isDisplayed=false`, so an item visible-but-clipped passes the gate and gets a partial-hit tap. The pre-swipe centres the target. Same drawer-column math as `NavMenuPage.scrollToItem`.
+> **Open Settings verification:** Uses `driver.getCurrentPackage()`, identical to Camera. After return-from-Settings, TC-LO07 re-asserts the denied state to catch regressions where the deep-link incorrectly exits the app.
+
+## 11. Shopping Cart (planned)
 
 | Test ID | Description | Strategy | Status |
 | :--- | :--- | :--- | :---: |
@@ -182,7 +205,7 @@ Each module's supported Android API range is an explicit contract. A new module 
 | **TC-S02** | Update item quantity in cart | UI Interaction | ⏳ |
 | **TC-S03** | Remove item from cart | UI Interaction | ⏳ |
 
-## 11. Checkout (planned)
+## 12. Checkout (planned)
 
 
 | Test ID | Description | Strategy | Status |

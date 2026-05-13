@@ -18,6 +18,7 @@
     "test:notifications": "npx playwright test tests/specs/03_nav/07_notifications.spec.js",
     "test:tabs": "npx playwright test tests/specs/03_nav/08_tabs.spec.js",
     "test:camera": "npx playwright test tests/specs/03_nav/09_camera.spec.js",
+    "test:location": "npx playwright test tests/specs/03_nav/10_location.spec.js",
     "appium:start": "npx appium --allow-insecure adb_shell"
   },
   "dependencies": {
