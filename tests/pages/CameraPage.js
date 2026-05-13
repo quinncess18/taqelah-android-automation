@@ -116,11 +116,38 @@ class CameraPage extends BasePage {
    * Wait for the live-preview state to fully render. Use after granting Camera
    * permission. On CI's API 34 emulator the flip button (clickable instance 2)
    * lands in the a11y tree a moment after the shutter, so we wait for both.
+   *
+   * On CI: if flipBtn fails to appear within budget, dump page source +
+   * screenshot to test-results/diagnostics/ before rethrowing so the failure
+   * is diagnosable from the artifact, not just from a generic timeout.
    */
   async waitForLivePreview() {
     await this.waitForDisplayed(this.screenTitle, 15000);
     await this.waitForDisplayed(this.shutterBtn, 15000);
-    await this.waitForDisplayed(this.flipBtn, 15000);
+    try {
+      await this.waitForDisplayed(this.flipBtn, 15000);
+    } catch (err) {
+      if (process.env.CI) {
+        try {
+          const fs = require('fs');
+          const path = require('path');
+          const dir = path.join(process.cwd(), 'test-results', 'diagnostics');
+          fs.mkdirSync(dir, { recursive: true });
+          const ts = Date.now();
+          fs.writeFileSync(
+            path.join(dir, `camera-live-preview-${ts}.xml`),
+            await this.driver.getPageSource(),
+          );
+          fs.writeFileSync(
+            path.join(dir, `camera-live-preview-${ts}.png`),
+            Buffer.from(await this.driver.takeScreenshot(), 'base64'),
+          );
+        } catch {
+          // Best-effort — don't mask the original failure.
+        }
+      }
+      throw err;
+    }
   }
 
   /**

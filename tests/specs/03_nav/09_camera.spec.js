@@ -50,6 +50,10 @@ test.describe('Navigation - Camera Suite — Granted Path (TC-CM01-CM04)', () =>
     cameraPage = await gotoCameraFresh(driver);
     // One-time grant for the whole group — both Camera + Audio dialogs.
     await cameraPage.acceptCameraAndAudio();
+    // CI emulator may inject the "Entering camera mode" overlay on entry
+    // (not only on first flip). No-op on real devices and on emulators where
+    // the modal isn't surfaced.
+    await cameraPage.dismissEmulatorTutorialIfPresent();
     await cameraPage.waitForLivePreview();
   });
 
