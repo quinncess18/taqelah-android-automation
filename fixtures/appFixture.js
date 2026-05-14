@@ -111,6 +111,42 @@ const test = base.extend({
     },
     { scope: 'worker' },
   ],
+
+  /**
+   * Auto-fixture: after a failed test, ping the driver; if the session is
+   * dead (e.g. UiAutomator2 instrumentation crashed mid-test), reload it
+   * so the next test in the same worker starts with a live session.
+   *
+   * Triggers only on test failure → zero overhead on green runs. Without
+   * this, an upstream crash (observed: Location TC-LO02 GPS timeout →
+   * instrumentation crash) cascades into every downstream spec failing
+   * with `invalid session id` at beforeAll time.
+   *
+   * `driver.reloadSession()` reuses the original capabilities, so the
+   * Android/iOS branching and pre-flight perms set at session creation
+   * carry over. App state survives because the original session uses
+   * `noReset: true`.
+   */
+  _autoSessionRecovery: [
+    async ({ driver }, use, testInfo) => {
+      await use();
+      if (testInfo.status === testInfo.expectedStatus) return;
+      try {
+        await driver.getPageSource();
+        return; // session healthy — failure was an in-test assertion / selector, not a crash
+      } catch {
+        // fall through to reload
+      }
+      console.warn(`[appFixture] session dead after failed test "${testInfo.title}"; reloading`);
+      try {
+        await driver.reloadSession();
+        console.log('[appFixture] session reloaded');
+      } catch (reloadErr) {
+        console.error(`[appFixture] reloadSession failed: ${reloadErr.message}`);
+      }
+    },
+    { auto: true },
+  ],
 });
 
 const { expect } = base;

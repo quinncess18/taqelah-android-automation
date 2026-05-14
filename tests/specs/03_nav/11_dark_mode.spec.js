@@ -103,7 +103,23 @@ test.describe('Navigation - Dark Mode Suite (TC-DK01-DK03)', () => {
     // permission grants/denials are fine context. DK03 turns Dark Mode OFF
     // at the end of every clean run, so DK01 always enters at default OFF.
     // We only require a logged-in Home as the starting state.
-    if (await loginPage.isVisible(loginPage.loginButton)) {
+    //
+    // Login button is gated with a real wait (not isVisible) so the
+    // cold-launch Compose render race doesn't skip login. Verified on
+    // tablet: a raw `if (await isVisible(loginButton))` returns false
+    // when Compose hasn't drawn yet, then login() is skipped and the
+    // subsequent Shop All wait times out. Pixel 8 hits the same race
+    // intermittently. The 10s ceiling is enough for both devices'
+    // cold-start render; warm state (e.g. running DK after another spec
+    // left us logged in) falls through the catch immediately.
+    let needsLogin = false;
+    try {
+      await loginPage.waitForDisplayed(loginPage.loginButton, 10000);
+      needsLogin = true;
+    } catch {
+      // No login button within 10s → already past the login screen.
+    }
+    if (needsLogin) {
       await loginPage.login(loginPage.defaultUser, loginPage.defaultPass);
     }
     await landingPage.waitForDisplayed(landingPage.shopAllBtn, 15000);

@@ -50,7 +50,21 @@ async function gotoLocationFresh(driver) {
   const { width, height } = await driver.getWindowRect();
   const safeX = Math.round(width * (width > 1200 ? 0.15 : 0.3));
   await navMenu.swipe(safeX, Math.round(height * 0.7), safeX, Math.round(height * 0.3), 800);
+
+  // Queue a mock GPS fix BEFORE the app gets location permission. Once the
+  // user grants ("While using the app"), the Current Location card polls
+  // the system provider — with the mock pre-set, the fix is immediate
+  // instead of waiting on the AVD's slow provider warm-up (the root cause
+  // of TC-LO02 timing out + UIA2 crashing on CI Pixel 6 cold boot).
+  await locationPage.warmupGeo();
+
   await navMenu.navigateTo(navMenu.navLocation);
+
+  // The Location screen requests OS permission on mount; the dialog renders
+  // ~hundreds of ms after navigateTo returns. Without this wait, TC-LO01 /
+  // TC-LO06 race the dialog and assert on an empty screen. The previous
+  // green runs were timing-lucky.
+  await locationPage.waitForDialog(15000);
 
   return locationPage;
 }

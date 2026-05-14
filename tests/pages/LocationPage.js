@@ -108,15 +108,37 @@ class LocationPage extends BasePage {
    * Wait for the granted-state UI (post permission accept, pre Start Tracking).
    */
   async waitForGrantedIdle() {
-    // Card-render is gated on a GPS fix; the emulator GPS mock on the
-    // Pixel Tablet AVD takes ~10–15s to return on a cold session (Pixel 8
-    // is sub-second). The post-grant screen renders a centered spinner
-    // until then, with no a11y content beyond the header. 25s covers
-    // both devices with margin.
+    // Card-render is gated on a GPS fix. Local Pixel 8 returns sub-second;
+    // Pixel Tablet AVD ~10–15s; CI Pixel 6 cold-boot has been observed to
+    // exceed 25s and crash the UiAutomator2 instrumentation. The spec calls
+    // warmupGeo() before granting permission so a fix is queued and the
+    // card renders almost immediately — the 60s ceiling here is defensive
+    // headroom for CI cases where the injection itself races the app.
     await this.waitForDisplayed(this.screenTitle, 15000);
-    await this.waitForDisplayed(this.currentLocationCard, 25000);
+    await this.waitForDisplayed(this.currentLocationCard, 60000);
     await this.waitForDisplayed(this.refreshBtn, 10000);
     await this.waitForDisplayed(this.startTrackingBtn, 10000);
+  }
+
+  /**
+   * Inject a mock GPS fix via Appium's setGeoLocation. Side-steps the
+   * emulator's own location provider, which on the CI Pixel 6 cold boot
+   * doesn't emit a fix fast enough for the granted-state card render
+   * (causing TC-LO02 to time out and then crash UiAutomator2). Requires
+   * io.appium.settings to hold ACCESS_*_LOCATION (granted in appFixture
+   * pre-flight on emulator targets; CI workflow grants too).
+   *
+   * Coordinates default to Singapore (taqelah.sg's nominal context).
+   * Idempotent and a no-op on iOS / cloud-target sessions.
+   */
+  async warmupGeo({ latitude = 1.2966, longitude = 103.8547, altitude = 30 } = {}) {
+    if (!this.isAndroid) return;
+    try {
+      await this.driver.execute('mobile: setGeolocation', { latitude, longitude, altitude });
+      await this.driver.pause(500);
+    } catch (err) {
+      console.warn(`[LocationPage] warmupGeo non-fatal: ${err.message}`);
+    }
   }
 
   /**
