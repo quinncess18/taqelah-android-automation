@@ -102,27 +102,39 @@ test.describe('Navigation - Dark Mode Suite (TC-DK01-DK03)', () => {
     // pm clear is NOT used: dark mode is a benign app setting; previous
     // permission grants/denials are fine context. DK03 turns Dark Mode OFF
     // at the end of every clean run, so DK01 always enters at default OFF.
-    // We only require a logged-in Home as the starting state.
     //
-    // Login button is gated with a real wait (not isVisible) so the
-    // cold-launch Compose render race doesn't skip login. Verified on
-    // tablet: a raw `if (await isVisible(loginButton))` returns false
-    // when Compose hasn't drawn yet, then login() is skipped and the
-    // subsequent Shop All wait times out. Pixel 8 hits the same race
-    // intermittently. The 10s ceiling is enough for both devices'
-    // cold-start render; warm state (e.g. running DK after another spec
-    // left us logged in) falls through the catch immediately.
-    let needsLogin = false;
-    try {
-      await loginPage.waitForDisplayed(loginPage.loginButton, 10000);
-      needsLogin = true;
-    } catch {
-      // No login button within 10s → already past the login screen.
+    // Three valid entry states this beforeAll must recover from:
+    //   (a) Cold launch → login screen visible → log in, then Home.
+    //   (b) Already on Home (Shop All visible) → done.
+    //   (c) Logged in but parked on another screen (e.g. Location's
+    //       denied state, which is what TC-LO08 leaves us on in CI's
+    //       sequential spec order) → drawer-navigate to Home.
+    //
+    // Cold-render note: login gate uses waitForDisplayed in a try/catch,
+    // not single-shot isVisible. On tablet pm-clear cold launches, Compose
+    // takes hundreds of ms to draw the Login button; isVisible returns
+    // false at the first millisecond and skips login. The wait absorbs
+    // that render race and falls through cleanly on warm state.
+    if (await landingPage.isVisible(landingPage.shopAllBtn)) {
+      // (b) already at Home; nothing to do
+    } else {
+      let loggedIn = true;
+      try {
+        await loginPage.waitForDisplayed(loginPage.loginButton, 10000);
+        loggedIn = false;
+      } catch {
+        // No login button → already past login, parked elsewhere
+      }
+      if (!loggedIn) {
+        // (a) login screen → log in
+        await loginPage.login(loginPage.defaultUser, loginPage.defaultPass);
+      } else {
+        // (c) logged in elsewhere → drawer-navigate Home
+        await navMenu.open();
+        await navMenu.navigateTo(navMenu.navHome);
+      }
+      await landingPage.waitForDisplayed(landingPage.shopAllBtn, 15000);
     }
-    if (needsLogin) {
-      await loginPage.login(loginPage.defaultUser, loginPage.defaultPass);
-    }
-    await landingPage.waitForDisplayed(landingPage.shopAllBtn, 15000);
   });
 
   test('TC-DK01: default state shows Dark Mode OFF; toggling ON darkens drawer and Home', async ({ driver }) => {
