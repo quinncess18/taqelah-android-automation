@@ -108,7 +108,11 @@ test.describe('Navigation - Dark Mode Suite (TC-DK01-DK03)', () => {
     //   (b) Already on Home (Shop All visible) → done.
     //   (c) Logged in but parked on another screen (e.g. Location's
     //       denied state, which is what TC-LO08 leaves us on in CI's
-    //       sequential spec order) → drawer-navigate to Home.
+    //       sequential spec order) → device-back to Home. We can't
+    //       drawer-navigate here because some screens (Location denied,
+    //       Camera, Settings deep-links) render a Back arrow in their
+    //       TopAppBar instead of the hamburger, so navMenu.open() would
+    //       time out waiting for "Open navigation menu".
     //
     // Cold-render note: login gate uses waitForDisplayed in a try/catch,
     // not single-shot isVisible. On tablet pm-clear cold launches, Compose
@@ -128,12 +132,11 @@ test.describe('Navigation - Dark Mode Suite (TC-DK01-DK03)', () => {
       if (!loggedIn) {
         // (a) login screen → log in
         await loginPage.login(loginPage.defaultUser, loginPage.defaultPass);
+        await landingPage.waitForDisplayed(landingPage.shopAllBtn, 15000);
       } else {
-        // (c) logged in elsewhere → drawer-navigate Home
-        await navMenu.open();
-        await navMenu.navigateTo(navMenu.navHome);
+        // (c) logged in elsewhere → back out to Home
+        await returnHome(driver, navMenu, landingPage);
       }
-      await landingPage.waitForDisplayed(landingPage.shopAllBtn, 15000);
     }
   });
 
