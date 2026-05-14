@@ -103,7 +103,7 @@ test.describe('Navigation - Camera Suite — Granted Path (TC-CM01-CM04)', () =>
   test('TC-CM04: should tap the flip-camera button without crashing and keep the live preview UI intact', async () => {
     test.skip(!flipAvailable, 'Single-camera environment: flip widget not rendered (DemoApp omits it when no front camera is exposed, e.g. GHA-hosted Pixel 6 AVD).');
 
-    // The Compose preview is a SurfaceView with no a11y nodes; we can't observe
+    // The Flutter preview is a SurfaceView with no a11y nodes; we can't observe
     // the sensor swap directly. Strongest signal we can reliably assert is
     // "button is wired + UI doesn't regress". On the Android Studio emulator,
     // first flip-to-front injects an "Entering camera mode" tutorial overlay —

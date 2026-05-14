@@ -115,7 +115,7 @@ test.describe('Navigation - Dark Mode Suite (TC-DK01-DK03)', () => {
     //       time out waiting for "Open navigation menu".
     //
     // Cold-render note: login gate uses waitForDisplayed in a try/catch,
-    // not single-shot isVisible. On tablet pm-clear cold launches, Compose
+    // not single-shot isVisible. On tablet pm-clear cold launches, Flutter
     // takes hundreds of ms to draw the Login button; isVisible returns
     // false at the first millisecond and skips login. The wait absorbs
     // that render race and falls through cleanly on warm state.

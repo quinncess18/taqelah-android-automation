@@ -14,7 +14,7 @@ const { BasePage } = require('./BasePage');
  *     that returns to live preview
  *   - Denied: header + "Camera permission denied" text + "Open Settings" button
  *
- * The bottom buttons (shutter / flip / back-arrow) are Compose canvas widgets
+ * The bottom buttons (shutter / flip / back-arrow) are Flutter canvas widgets
  * with NAF=true and no content-desc / resource-id. They are selected via
  * className + clickable + empty-description (and per-state instance index),
  * which is the most stable handle that doesn't fall back to coordinate taps.
@@ -32,7 +32,7 @@ class CameraPage extends BasePage {
       : '~Camera';
 
     // ── Live preview state ──
-    // The Compose camera widgets are NAF=true with no content-desc / resource-id
+    // The Flutter camera widgets are NAF=true with no content-desc / resource-id
     // attribute set at all (description("") doesn't match because the attribute
     // is absent, not empty). The most stable handle is clickable-instance order
     // in the a11y tree:

@@ -226,7 +226,7 @@ test.describe('Navigation - Form Validation Suite (TC-F01-F06)', () => {
     await formPage.resetToTop();
 
     // Gate the isVisible probes on errorName actually rendering — on slow
-    // CI Compose, the required-error labels can lag behind the submit by a
+    // CI Flutter, the required-error labels can lag behind the submit by a
     // few hundred ms, causing the first .toBe(true) to fail against an
     // empty a11y tree. Waiting for one error to land confirms the rest
     // have rendered before we probe them.
@@ -242,7 +242,7 @@ test.describe('Navigation - Form Validation Suite (TC-F01-F06)', () => {
 
   test('TC-F05: should show format-error messages for invalid fields (no Reset; Name stays valid)', async ({ driver }) => {
     // Self-reset (was cascading from F04). CI exposed cascade fragility:
-    // when F03's terms-toast wait flakes on slow Compose render, F04 inherits
+    // when F03's terms-toast wait flakes on slow Flutter rendering, F04 inherits
     // a partial submit + Terms ON state, then F05 inherits THAT — and its
     // .toBe(true) assertions on format-error visibility fail until retry.
     // Back + re-enter guarantees a clean default form regardless of upstream

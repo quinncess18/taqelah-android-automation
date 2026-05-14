@@ -32,7 +32,7 @@ class FormValidationPage extends BasePage {
     // ── Text Input Fields ──
     // Anchored via UiScrollable.scrollIntoView so each field is reliably
     // resolved regardless of current scroll position. Bare instance(N)
-    // selectors are fragile: when the soft keyboard pops up and Compose
+    // selectors are fragile: when the soft keyboard pops up and Flutter's a11y bridge
     // auto-scrolls, the previous field can drop from the a11y tree,
     // shifting instance numbering — CI run 25709947969 hit this on
     // TC-F02, where between enterEmail and enterPhone the tree narrowed
@@ -189,7 +189,7 @@ class FormValidationPage extends BasePage {
   async typeIntoField(selector, value) {
     const el = await this.driver.$(selector);
     // Wait for the field to enter the a11y tree before clicking. On slower
-    // CI Compose, the previous field's focus can transiently narrow the
+    // CI Flutter, the previous field's focus can transiently narrow the
     // tree (instance(N) selectors stale momentarily — see
     // feedback_compose_tree_narrowing). CI run 25708179594 hit this on
     // TC-F02 first attempt: EditText.instance(1) (Email) was missing
@@ -202,12 +202,13 @@ class FormValidationPage extends BasePage {
     await el.addValue(value);
     await this.driver.pause(200);
     // Dismiss the soft keyboard before returning. While the keyboard is
-    // up Compose collapses unfocused fields and the scrollable container
-    // from the a11y tree (verified via CI run 25711364179 dump: 0 EditText
+    // up Flutter's semantic tree collapses unfocused fields and the
+    // scrollable container from the a11y bridge (verified via CI run
+    // 25711364179 dump: 0 EditText
     // nodes despite the form being visually intact). Without this, the
     // NEXT typeIntoField's instance(N) selector resolves against a
     // narrowed tree and can land on the wrong field — e.g. Phone value
-    // ending up in the Number field on CI's slower Compose render.
+    // ending up in the Number field on CI's slower Flutter rendering.
     try { await this.driver.hideKeyboard(); } catch { /* keyboard not up */ }
     await this.driver.pause(300);
   }
@@ -278,7 +279,7 @@ class FormValidationPage extends BasePage {
           const fallbackEl = await this.driver.$(this.passwordInput);
           await fallbackEl.click();
         }
-        await this.driver.pause(400); // settle keyboard + Compose recompose
+        await this.driver.pause(400); // settle keyboard + Flutter widget rebuild
         const focusedEl = await this.driver.$(
           'android=new UiSelector().className("android.widget.EditText").focused(true)'
         );
@@ -360,7 +361,7 @@ class FormValidationPage extends BasePage {
    *
    * Uses `mobile: dragGesture` (UIAutomator2 driver's native gesture API)
    * because W3C `performActions` and `mobile: shell input swipe` don't
-   * generate dense-enough MotionEvents for Compose's drag detector to
+   * generate dense-enough MotionEvents for Flutter's gesture-arena drag detector to
    * recognize as a drag — the thumb stays put. `mobile: dragGesture`
    * synthesizes a proper Android drag with intermediate move events.
    *
@@ -415,7 +416,7 @@ class FormValidationPage extends BasePage {
 
   /**
    * Click the Submit button. Waits up to 8s for it to enter the a11y tree
-   * — on slower CI emulators (post-hideKeyboard + scrollToBottom), Compose
+   * — on slower CI emulators (post-hideKeyboard + scrollToBottom), Flutter
    * may not have settled the Submit button into the tree yet by the time
    * the spec calls submit(), which previously failed with "element wasn't
    * found" (CI run 25705508677 TC-F03 first-attempt).
@@ -584,7 +585,7 @@ class FormValidationPage extends BasePage {
   }
 
   /**
-   * Internal helper: read a Compose-backed input's value from the `text`
+   * Internal helper: read a Flutter-backed input's value from the `text`
    * attribute first, then `content-desc`, treating UiAutomator2's literal
    * "null" string as absent.
    * @param {string} selector

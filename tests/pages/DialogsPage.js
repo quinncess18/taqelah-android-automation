@@ -328,7 +328,7 @@ class DialogsPage extends BasePage {
 
   /**
    * Compute the analog dial canvas geometry from selector-anchored bounds.
-   * The dial itself has no accessibility children (it's a custom Compose
+   * The dial itself has no accessibility children (it's a custom Flutter CustomPainter-drawn
    * canvas), so we derive its bounds from sibling anchors.
    *
    * Phone (portrait): header sits at top, dial canvas spans the area
