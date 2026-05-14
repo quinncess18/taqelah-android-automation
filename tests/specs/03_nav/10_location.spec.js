@@ -13,7 +13,7 @@ const { LocationPage } = require('../../pages/LocationPage');
  *
  * Each Start Tracking tap inserts exactly one history entry provided
  * the GPS-fix dwell is ≥3s (LocationPage.startDwellMs). History list is
- * a Compose LazyColumn — newest entries render first; older entries are
+ * a Flutter ListView.builder-style virtualized list — newest entries render first; older entries are
  * present but require scrolling. No eviction observed at ≤10 entries.
  *
  * Deferred to real-device cloud:
@@ -131,12 +131,38 @@ test.describe('Navigation - Location Suite — Granted Path (TC-LO01-LO05)', () 
     expect(reconstructed).toMatch(HISTORY_DOC_RE);
   });
 
-  test('TC-LO04: should accumulate 6 history entries across Stop/Start cycles, preserve LIFO order, and end on the stopped state', async () => {
-    // Cascade: TC-LO03 left us mid-tracking with 1 entry. Stop, then run 5
-    // more Start/Stop cycles for a total of 6 entries.
-    await locationPage.tapStopTracking();
+  test('TC-LO04: should accumulate 6 history entries across Stop/Start cycles, preserve LIFO order, and end on the stopped state', async ({ driver }) => {
+    // Self-recovery: cascade design expects TC-LO03 to leave us mid-tracking
+    // with 1 entry. If a prior TC's UIA2 crash triggered the appFixture's
+    // _autoSessionRecovery, the session got reloaded → cascade state is
+    // gone (Playwright retries only this TC, not the prior ones). Detect
+    // the actual state and recover before running the cycles. CI run
+    // 25849810128 surfaced this: TC-LO04 first attempt hit the 180s test
+    // timeout, recovery reloaded the session, retries 1 & 2 then failed
+    // 5s into the bare tapStopTracking() because the Stop button didn't
+    // exist on the post-reload login screen.
+    const state = await locationPage.getCurrentState();
+    let cycles;
+    if (state === 'tracking') {
+      // Cascade green path — stop TC-LO03's tracking, then 5 more cycles
+      // → 1 (from LO03) + 5 = 6 total.
+      await locationPage.tapStopTracking();
+      cycles = 5;
+    } else {
+      // Recovery — re-establish granted-idle state if not already there,
+      // then run a full 6 cycles from scratch.
+      if (state !== 'idle') {
+        console.log(`[TC-LO04] recovering from state="${state}" — re-establishing granted-idle from cold`);
+        locationPage = await gotoLocationFresh(driver);
+        await locationPage.acceptWhileUsing();
+        await locationPage.waitForGrantedIdle();
+      } else {
+        console.log('[TC-LO04] recovering from granted-idle (TC-LO03 state lost) — running 6 fresh cycles');
+      }
+      cycles = 6;
+    }
 
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < cycles; i++) {
       await locationPage.cycleStartStop();
     }
 
@@ -160,6 +186,19 @@ test.describe('Navigation - Location Suite — Granted Path (TC-LO01-LO05)', () 
 
   test('TC-LO05: should retain the granted state on re-entry; History is screen-session-scoped and resets', async ({ driver }) => {
     const navMenu = new NavMenuPage(driver);
+
+    // Self-recovery guard — same rationale as TC-LO04. If a prior TC
+    // crashed and the session got reloaded, we may be at the login
+    // screen with no Location backBtn to click. Recover to granted-idle
+    // first; the back+re-enter flow needs at least an active Location
+    // screen to start from.
+    const state = await locationPage.getCurrentState();
+    if (state === 'other') {
+      console.log(`[TC-LO05] recovering from state="${state}" — re-establishing granted-idle from cold`);
+      locationPage = await gotoLocationFresh(driver);
+      await locationPage.acceptWhileUsing();
+      await locationPage.waitForGrantedIdle();
+    }
 
     await driver.$(locationPage.backBtn).click();
     await driver.pause(1000);

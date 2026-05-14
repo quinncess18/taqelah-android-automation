@@ -18,7 +18,7 @@ const { BasePage } = require('./BasePage');
  *     "<lat>, <lng>\n<HH:mm:ss>\n±<n>m".
  *   - Denied: header + "Location permission denied" + "Open Settings".
  *
- * History list is a Compose LazyColumn — only rendered (~visible)
+ * History list is a Flutter ListView.builder-style virtualized list — only rendered (~visible)
  * entries appear in the a11y tree. Use collectAllHistoryEntries() to
  * scroll-and-dedupe across the full list.
  *
@@ -196,13 +196,39 @@ class LocationPage extends BasePage {
    * devices should respond within the same window.
    */
   async tapStartTracking() {
+    // Defensive wait — without this, a millisecond-level cold-render race
+    // surfaces as a cryptic "element wasn't found" instead of an honest
+    // wait-then-fail with the timeout in the message.
+    await this.waitForDisplayed(this.startTrackingBtn, 8000);
     await (await this.driver.$(this.startTrackingBtn)).click();
     await this.driver.pause(this.startDwellMs);
   }
 
   async tapStopTracking() {
+    // Defensive wait — see tapStartTracking. The original bare click() is
+    // what surfaced in CI run 25849810128 as "element wasn't found" when
+    // TC-LO04 retried after a session reload had wiped TC-LO03's state.
+    await this.waitForDisplayed(this.stopTrackingBtn, 8000);
     await (await this.driver.$(this.stopTrackingBtn)).click();
     await this.driver.pause(1000);
+  }
+
+  /**
+   * Detect the current Location screen state. Used by callers that need
+   * to self-recover from a session reload mid-spec (Playwright retries
+   * an individual TC, not the whole describe — so cascade state is lost).
+   *
+   * Returns one of:
+   *   'tracking' — Stop Tracking visible (mid-tracking)
+   *   'idle'     — Start Tracking visible (granted, not yet tracking)
+   *   'denied'   — permission denied banner visible
+   *   'other'    — none of the above (probably off the Location screen)
+   */
+  async getCurrentState() {
+    if (await this.isVisible(this.stopTrackingBtn)) return 'tracking';
+    if (await this.isVisible(this.startTrackingBtn)) return 'idle';
+    if (await this.isVisible(this.permissionDeniedText)) return 'denied';
+    return 'other';
   }
 
   /**
@@ -211,9 +237,18 @@ class LocationPage extends BasePage {
    * the Start dwell on cold sessions, producing a no-op cycle. Up to
    * `maxAttempts` retries are made; each retry re-extends the dwell.
    *
+   * Bounded by a wall-clock budget: a single hung getPageSource() on a
+   * struggling UIA2 instrumentation could otherwise consume the entire
+   * 180s Playwright test budget, then the teardown's budget on top of
+   * that (observed in CI run 25849810128 — 6min total before failure).
+   * If `budgetMs` is exceeded the call fails fast with diagnostic; the
+   * caller learns the cycle never converged rather than waiting for
+   * Playwright's outer timeout to fire without context.
+   *
    * Returns the new total visible entry count for the caller to assert.
    */
-  async cycleStartStop({ maxAttempts = 3 } = {}) {
+  async cycleStartStop({ maxAttempts = 2, budgetMs = 30000 } = {}) {
+    const deadline = Date.now() + budgetMs;
     // Use the newest entry's key (not count) to detect a successful insert:
     // once the screen fold is full, adding a new entry pushes the oldest
     // off-viewport, leaving the visible count unchanged. The newest-key
@@ -221,6 +256,9 @@ class LocationPage extends BasePage {
     const before = await this.readVisibleHistory();
     const beforeKey = before[0]?.key ?? null;
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      if (Date.now() > deadline) {
+        throw new Error(`[LocationPage] cycleStartStop exceeded budget ${budgetMs}ms after ${attempt - 1} attempt(s); newest key unchanged at ${beforeKey}. Likely GPS mock not producing fixes on this device.`);
+      }
       await this.tapStartTracking();
       await this.tapStopTracking();
       const after = await this.readVisibleHistory();
