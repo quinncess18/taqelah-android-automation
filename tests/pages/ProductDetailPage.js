@@ -49,16 +49,15 @@ class ProductDetailPage extends BasePage {
    * Wait for the Product Detail screen to be interactable.
    * Add to Cart is the universal anchor — present in every state.
    *
-   * CI Pixel 6 emulator's Flutter cold render is slower than local on the
-   * second Detail visit of a cascade (the network/asset path for the
-   * Casual product image specifically). Run 25917898235 timed out at 15s,
-   * which crashed UIA2 instrumentation and cascaded into PD04–SR02 dying
-   * at 0ms (session-unrecoverable). 25s gives the defensive headroom the
-   * Location module's `Current Location card` wait uses for the same
-   * "CI emulator slow on second cold render" pattern.
+   * CI Pixel 6 emulator's Flutter cold render is non-deterministically
+   * slow on this screen — PD01 passed in 1.8s on run 25917898235 but
+   * timed out at 25s on run 25919870295. Image asset hydration + Flutter
+   * a11y bridge contention on a hardware-constrained runner pushes the
+   * tail latency past 25s. 60s matches Location's defensive headroom
+   * for the same CI emulator pattern.
    */
   async waitForPageLoad() {
-    await this.waitForDisplayed(this.addToCartBtn, 25000);
+    await this.waitForDisplayed(this.addToCartBtn, 60000);
   }
 
   /**

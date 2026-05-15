@@ -19,6 +19,16 @@ test.describe('Products Module — Product Detail + Add to Cart', () => {
   let casualPick;
 
   test.beforeAll(async ({ driver }) => {
+    // Disable UIA2's "wait for a11y tree to be idle" gate. On Flutter
+    // screens with continuous animations or image hydration (e.g. the
+    // product Detail page on CI's hardware-constrained Pixel 6), the
+    // bridge is rarely "idle" within UIA2's default 10s window — the
+    // instrumentation then crashes mid-wait and Playwright's retry kicks
+    // in against a dead session, cascading 0ms failures down the spec.
+    // Setting this to 0 makes UIA2 query the a11y tree immediately on
+    // each poll without an idle precondition. Persists for the session.
+    try { await driver.updateSettings({ waitForIdleTimeout: 0 }); } catch {}
+
     loginPage = new LoginPage(driver);
     landingPage = new CatalogLandingPage(driver);
     gridPage = new ProductGridPage(driver);
