@@ -1,0 +1,39 @@
+{
+  "valid": [
+    {
+      "name": "Standard checkout",
+      "customer": {
+        "fullName": "Jane Doe",
+        "address1": "123 Fashion Street",
+        "address2": "Unit 04-12",
+        "city": "Singapore",
+        "state": "Singapore",
+        "zip": "123456",
+        "country": "Singapore"
+      },
+      "usedBy": ["TC-K02", "TC-K03", "TC-E01"]
+    },
+    {
+      "name": "Alt happy path (no address2)",
+      "customer": {
+        "fullName": "Alex Tan",
+        "address1": "456 Orchard Road",
+        "address2": "",
+        "city": "Singapore",
+        "state": "Singapore",
+        "zip": "238888",
+        "country": "Singapore"
+      },
+      "usedBy": ["TC-K10"]
+    }
+  ],
+  "invalid": {
+    "emptyFullName": { "fullName": "",         "address1": "123 Fashion St", "address2": "", "city": "Singapore", "state": "Singapore", "zip": "123456", "country": "Singapore" },
+    "emptyAddress1": { "fullName": "Jane Doe", "address1": "",               "address2": "", "city": "Singapore", "state": "Singapore", "zip": "123456", "country": "Singapore" },
+    "emptyCity":     { "fullName": "Jane Doe", "address1": "123 Fashion St", "address2": "", "city": "",          "state": "Singapore", "zip": "123456", "country": "Singapore" },
+    "emptyState":    { "fullName": "Jane Doe", "address1": "123 Fashion St", "address2": "", "city": "Singapore", "state": "",          "zip": "123456", "country": "Singapore" },
+    "emptyZip":      { "fullName": "Jane Doe", "address1": "123 Fashion St", "address2": "", "city": "Singapore", "state": "Singapore", "zip": "",       "country": "Singapore" },
+    "emptyCountry":  { "fullName": "Jane Doe", "address1": "123 Fashion St", "address2": "", "city": "Singapore", "state": "Singapore", "zip": "123456", "country": ""          },
+    "allEmpty":      { "fullName": "",         "address1": "",               "address2": "", "city": "",          "state": "",          "zip": "",       "country": ""          }
+  }
+}

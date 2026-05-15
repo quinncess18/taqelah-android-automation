@@ -20,6 +20,7 @@
     "test:camera": "npx playwright test tests/specs/03_nav/09_camera.spec.js",
     "test:location": "npx playwright test tests/specs/03_nav/10_location.spec.js",
     "test:darkmode": "npx playwright test tests/specs/03_nav/11_dark_mode.spec.js",
+    "test:products": "npx playwright test tests/specs/04_products/01_product_detail_add.spec.js",
     "appium:start": "npx appium --allow-insecure adb_shell"
   },
   "dependencies": {

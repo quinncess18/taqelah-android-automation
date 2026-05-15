@@ -33,6 +33,17 @@ class BasePage {
 
     // App package identifiers — single source of truth for lifecycle operations
     this.appPackage = this.isAndroid ? 'com.taqelah.demo_app' : 'com.taqelah.demoApp';
+
+    // Platform attribute name for reading element descriptions (content-desc
+    // on Android, label on iOS). Single source of truth used by all POMs.
+    this.attrName = this.isAndroid ? 'content-desc' : 'label';
+
+    // App-global "added to cart" snackbar — fires from Product Detail's
+    // Add to Cart button AND from a grid card's direct-add icon. Owned at
+    // BasePage so any POM can wait on it without cross-POM reaching.
+    this.addedSnackbar = this.isAndroid
+      ? 'android=new UiSelector().descriptionContains("added to cart")'
+      : '~added-snackbar';
   }
 
   /**
@@ -208,6 +219,30 @@ class BasePage {
     await this.driver.terminateApp(this.appPackage);
     await this.driver.pause(2000);
     await this.driver.activateApp(this.appPackage);
+  }
+
+  /**
+   * Wait for the "added to cart" snackbar and return its content-desc text.
+   * Caller is responsible for triggering the add (tapping a Detail's Add to
+   * Cart button or a grid card's direct-add icon) before calling this.
+   */
+  async getAddedSnackbarText() {
+    const snackbar = await this.waitForDisplayed(this.addedSnackbar, 5000);
+    return snackbar.getAttribute(this.attrName);
+  }
+
+  /**
+   * Pause long enough for the add-to-cart snackbar's auto-dismiss timer to
+   * elapse before triggering the next interaction. A fixed pause is used
+   * instead of `waitForDisplayed({reverse:true})` because the selector
+   * `descriptionContains("added to cart")` matches both an old snackbar AND
+   * a replacement one, so the inverse-wait never resolves on back-to-back
+   * adds of the same product. Flutter's default SnackBar duration is a
+   * wall-clock 4s; the device's `settlePause` is added as a render-lag
+   * buffer (800ms locally, 1500ms on CI per workflow env override).
+   */
+  async waitForSnackbarDismissed() {
+    await this.driver.pause(4000 + this.settlePause);
   }
 
   async samplePixel(x, y) {

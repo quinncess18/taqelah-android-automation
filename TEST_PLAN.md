@@ -214,18 +214,93 @@ Each module's supported Android API range is an explicit contract. A new module 
 > **Location pre-swipe:** Mirrored from `10_location.spec.js` — one drawer-column swipe before tapping Location so the tap target is centred instead of clipped at the drawer's bottom edge.
 > **Retry-tolerant returnHome:** `driver.back()` is called up to 3 times waiting for Home's `shopAllBtn`. Some module screens (Form's auto-focused EditText) raise the soft keyboard and the first back dismisses the keyboard rather than exiting the page; the retry absorbs this without per-module branching.
 
-## 12. Shopping Cart (planned)
+## 12. Product Detail + Add to Cart (planned)
+
+**Spec:** `tests/specs/04_products/01_product_detail_add.spec.js`
+**Flow:** Shop All → Detail (color-variant add ×2) → Casual Category → Detail (add) → Evening Category → direct add. Cart cascade ends with 4 lines.
+
+**Color → cart line model (verified from `dumps/cart_with_items.xml`):**
+- Different color on same product → new cart line (variant model).
+- Same color on same product tapped again → qty bump on existing line.
+- Cart line content-desc has NO color info — only `name\n$total\nqty`. Two color variants of one product produce two identical-looking lines in the a11y tree, distinguishable only by positional instance.
+
+**Add-to-cart snackbar (verified from `dumps/detail_add_toast.xml`):**
+- `description="<Product> added to cart"` with embedded `VIEW CART` action button @ bottom edge.
+- Detail screen app bar has no cart icon — badge assertion requires navigating back to Shop All / Category grid where the cart icon sits.
+
+| Test ID | Description | Strategy | Pixel 8 | Pixel Tablet |
+| :--- | :--- | :--- | :---: | :---: |
+| **TC-PD01** | From Catalog Landing → Shop All → tap random product card → Detail renders (image, title, price, description, 3 color swatches, qty stepper, Add to Cart) | E2E Flow | ✅ | ✅ |
+| **TC-PD02** | Color-variant cascade — tap color swatch by instance(0) → Add to Cart → snackbar; tap swatch by instance(1) on same product → Add to Cart → snackbar. Assert Cart now has 2 lines (one per color variant) and badge=2 | UI Interaction + Variant Side-effect | ✅ | ✅ |
+| **TC-PD03** | Back → assert cart badge=2 on Shop All; Nav Menu → Home → tap Casual category → tap random product card → Detail renders (navigation-only, no add) | E2E Flow | ✅ | ✅ |
+| **TC-PD04** | Tap Add to Cart on the Casual product Detail → snackbar `"<Product> added to cart"` with VIEW CART action; navigate Back → cart badge=3 | UI + Side-effect | ✅ | ✅ |
+| **TC-PD05** | Back → Evening category landing renders with product grid (navigation-only, no add) | E2E Flow | ✅ | ✅ |
+| **TC-PD06** | Add a product directly via the card's NAF add-to-cart icon (no Detail visit) → snackbar at bottom edge → cart badge=4 | UI + Side-effect | ✅ | ✅ |
+
+> **Cross-device:** Pixel Tablet runs in **forced portrait** for this spec — natural landscape (2560×1600) makes product cards taller than the viewport. Lock is applied AFTER login via `mobile: shell` + `settings put system user_rotation 1`. The W3C `driver.setOrientation()` is deprecated and silently no-ops on UIA2; `mobile: setOrientation` is not registered. See `feedback_uia2_orientation_api.md` in memory.
+
+## 13. Search (planned)
+
+**Spec:** lives in `tests/specs/04_products/01_product_detail_add.spec.js` (folded with PD).
+**Scope:** Search bar is NOT on Catalog Landing — it lives on the Shop All ("All Dresses") grid and each Category grid (Casual / Evening / Party / Boho). TC-SR01 exercises **Party** with keyword `"Cocktail"` (3 matches: Lace, Mint, Navy) and adds all 3; TC-SR02 exercises **Boho** with `"shorts"` for an off-catalog clothing-domain negative.
+
+| Test ID | Description | Strategy | Pixel 8 | Pixel Tablet |
+| :--- | :--- | :--- | :---: | :---: |
+| **TC-SR01** | Open Party grid → search `"Cocktail"` → counter shows 3 matches → add all 3 distinct cocktail products via direct-add icon (bottom-up scroll pattern); cart badge becomes 7 | Functional + Multi-Add | ✅ | ✅ |
+| **TC-SR02** | Open Boho grid → search `"shorts"` → zero matching cards, badge unchanged at 7 | Negative (cross-grid) | ✅ | ✅ |
+
+> **Bottom-up scroll pattern (SR01):** scroll the grid DOWN once so the bottom-most match is in view, then iterate visible names in REVERSE order. Between iterations, scroll UP to reveal earlier matches. The inter-iteration scroll doubles as the snackbar-dismiss delay — Material Snackbar with `VIEW CART` action persists ≥5s on rotated tablet, exceeding `waitForSnackbarDismissed`'s default budget. Phone case (all 3 fit in one viewport) degenerates cleanly to one iteration. See `feedback_bottom_up_scroll_pattern.md`.
+
+## 14. Shopping Cart (planned)
+
+**Spec:** `tests/specs/04_products/02_cart.spec.js`
+**Cascade entry:** assumes 4 cart lines from §12 (2 color variants + 1 Casual + 1 Evening). Increment cap N=5 (matches Location's cycle budget).
+
+**Cart line structure (verified from `dumps/cart_with_items.xml`):**
+- Each line = ImageView with `description="<Product>\n$<line total>\n<qty>"` (qty 1 ⇒ qty 1, qty 2 ⇒ price doubled and qty shown as 2).
+- Per line, 3 buttons in left-to-right order (selectable via `clickable(true).instance(N)` within the line subtree, or via bounds):
+  - **Minus** — `enabled=false, clickable=false` at qty=1 (greyed); becomes NAF `clickable=true` at qty≥2.
+  - **Plus** — NAF Button, always `clickable=true`.
+  - **Delete** — NAF Button, always `clickable=true`.
+- **Selector ambiguity:** color variants of the same product produce identical content-desc lines. Disambiguate by positional instance within the scrollable, not by content-desc.
+
+**Bottom bar:**
+- Label `description("Total:")`, value `description("$<sum>")` (sum of all line totals).
+- `description("Proceed to Checkout")` Button, clickable=true.
 
 | Test ID | Description | Strategy | Status |
 | :--- | :--- | :--- | :---: |
-| **TC-S01** | Add single item to cart | E2E Flow | ⏳ |
-| **TC-S02** | Update item quantity in cart | UI Interaction | ⏳ |
-| **TC-S03** | Remove item from cart | UI Interaction | ⏳ |
+| **TC-S01** | Open Cart (icon) → 4 line items visible with correct `name\n$total\nqty` content-desc; `Total:` value = Σ line totals; Proceed to Checkout enabled | Universal POM + Data Integrity | ⏳ |
+| **TC-S02** | On a qty=1 line, tap Plus up to qty=5 → line content-desc reflects new qty + scaled total per tap; cart Total updates per tap | UI Interaction (capped N=5) | ⏳ |
+| **TC-S03** | Tap Minus back down to qty=1 → totals reverse symmetrically; at qty=1 the Minus button is disabled (`enabled=false, clickable=false`) — assertion only, no further tap | UI Interaction + Disabled-state Assertion | ⏳ |
+| **TC-S04** | Tap Delete (3rd clickable instance per line) on a specific line → that line removed, cart Total decrements by the deleted line's total, remaining lines unchanged | UI Interaction | ⏳ |
+| **TC-S05** | Tap Delete on remaining lines until empty → empty-state message ("Your Cart is empty"), badge=0, Continue Shopping button visible | Negative / Empty State | ⏳ |
 
-## 13. Checkout (planned)
+## 15. Checkout (planned)
 
+**Spec:** `tests/specs/04_products/03_checkout.spec.js`
+**Flow:** Cart → Shipping Info ("To Payment") → Review Order ("Place Order") → Thank You ("Continue Shopping"). No Payment step. No order number on Thank You. Fields accept any non-empty value (no format validation observed). Test data: `tests/data/checkout-scenarios.json`.
+
+**Selectors (verified from `dumps/shipping_info.xml`, `dumps/shipping_empty_submit.xml`, `dumps/review_order.xml`, `dumps/thank_you.xml`):**
+- Shipping Info form: 7 NAF `EditText` fields, no hint/resource-id. Positional `instance(N)` is the only selector handle (0=Full Name, 1=Address1, 2=Address2 optional, 3=City, 4=State, 5=Zip, 6=Country). Same a11y model as Form Validation — port `typeIntoField` with `hideKeyboard()` + `UiScrollable.scrollIntoView`.
+- Validation: every required field gets a child View `description="This field is required"` after empty submit; Address 2 stays clean.
+- Review Order: Shipping Address card content-desc joins fields with `\n` — 4 lines without Address 2, **5 lines with Address 2** (`Full Name\nAddress 1\nAddress 2\nCity, State Zip\nCountry`).
+- Review line item format: `description="<Product>\nQty: <N>\n$<line subtotal>"` — same data semantic as Cart (subtotal, not unit price) but different field order, so the POM needs two parsers (one for `<Product>\n$<total>\n<qty>` on Cart, one for `<Product>\nQty: <N>\n$<subtotal>` on Review).
+- Review scrollability: when total content fits viewport, no scroll wrapper. When content overflows (verified at 6 line items), entire screen wraps in `android.widget.ScrollView` with `scrollable=true` and **Place Order falls below the fold**. POM must use `UiScrollable.scrollIntoView` for `description("Place Order")` on long carts.
+- Thank You: `description("Thank You!")` + body `description="Your order has been placed successfully.\nYou will receive a confirmation shortly."` + `description("Continue Shopping")` button. No app bar, no Back — Continue Shopping is the only forward path.
 
 | Test ID | Description | Strategy | Status |
 | :--- | :--- | :--- | :---: |
-| **TC-K01** | Complete purchase flow (Guest/User) | Full E2E | ⏳ |
-| **TC-K02** | Form validation on checkout | Negative | ⏳ |
+| **TC-K01** | Cart with ≥ 1 item → Checkout → Shipping Info renders (7 fields) → tap To Payment with all fields empty → assert exactly 6 `"This field is required"` errors (one per required field; Address 2 has none); stay on Shipping | Negative | ⏳ |
+| **TC-K02** | Fill all 7 Shipping fields (`valid[0]` fixture including Address 2 = "Unit 04-12") → To Payment → Review Order renders with **5-line Shipping Address card** (proves Address 2 is rendered as its own line), Order Summary line items match Cart, Total matches Cart Total → Place Order → Thank You screen with `"Thank You!"` title + success body + Continue Shopping button | E2E Flow + Optional Field Surface | ⏳ |
+| **TC-K03** | Continue Shopping from Thank You → returns to Catalog Landing → cart badge=0 | E2E Flow | ⏳ |
+| **TC-K04** | Fill all 7 Shipping fields → To Payment (Review renders) → tap Back → Shipping Info re-appears with **all 7 entered values preserved** verbatim (incl. Address 2) | State Preservation | ⏳ |
+
+## 16. End-to-End Regression (planned)
+
+**Spec:** `tests/specs/05_regression/01_e2e.spec.js`
+**Reset:** `pm clear` + `am force-stop` + `am start -W` (matches Camera/Location/Notifications pattern). CI-safe — proven in commit `b383803` (run 25852952799).
+
+| Test ID | Description | Strategy | Status |
+| :--- | :--- | :--- | :---: |
+| **TC-E01** | Full serial single-product journey: `pm clear` → relaunch → login → Catalog Landing → product detail → add to cart → open Cart → Checkout → fill Shipping (standard fixture) → To Payment → Review Order → Place Order → Thank You → Continue Shopping → assert Catalog Landing + badge=0 | Full E2E Serial | ⏳ |

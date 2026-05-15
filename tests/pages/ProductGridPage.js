@@ -21,9 +21,17 @@ class ProductGridPage extends BasePage {
       ? 'android=new UiSelector().className("android.widget.Button").instance(1)' 
       : '~sort-button';
     
-    this.cartBtn = this.isAndroid 
-      ? 'android=new UiSelector().className("android.widget.Button").instance(2)' 
+    this.cartBtn = this.isAndroid
+      ? 'android=new UiSelector().className("android.widget.Button").instance(2)'
       : '~cart-icon';
+
+    // Cart badge — small View overlaying the cart icon, content-desc = count
+    // when items > 0; node is absent when cart is empty. The only numeric-only
+    // content-desc on the Shop All / Category grids is the badge, so the regex
+    // resolves it uniquely. Verified against `dumps/shop_all_with_badge.xml`.
+    this.cartBadge = this.isAndroid
+      ? 'android=new UiSelector().className("android.view.View").descriptionMatches("^[0-9]+$")'
+      : '~cart-badge';
     
     // Search & Metadata
     this.searchInput = this.isAndroid 
@@ -60,8 +68,7 @@ class ProductGridPage extends BasePage {
       ? 'android=new UiSelector().className("android.widget.ImageView").clickable(true).instance(0)'
       : '~product-item-0';
 
-    // Platform attribute name for reading element descriptions
-    this.attrName = this.isAndroid ? 'content-desc' : 'label';
+    // attrName inherited from BasePage.
   }
 
   async waitForPageLoad() {
@@ -91,6 +98,23 @@ class ProductGridPage extends BasePage {
     await this.driver.pause(this.settlePause);
   }
 
+  /**
+   * Type a keyword into the grid's search bar. The grid filters in-place
+   * as the user types (no submit button on the EditText). Keyboard is
+   * dismissed after the input to avoid Flutter a11y-tree narrowing — the
+   * same defense the Form Validation module applies.
+   */
+  async searchProducts(keyword) {
+    const input = await this.driver.$(this.searchInput);
+    await input.click();
+    await input.clearValue();
+    await input.addValue(keyword);
+    if (this.isAndroid) {
+      try { await this.driver.hideKeyboard(); } catch {}
+    }
+    await this.driver.pause(this.settlePause);
+  }
+
   async nudgeToRevealFirstItem() {
     const { width, height } = await this.driver.getWindowRect();
     const isTablet = width > 1200;
@@ -107,12 +131,99 @@ class ProductGridPage extends BasePage {
   }
 
   /**
+   * Read the cart badge count. Returns 0 if the badge node is absent
+   * (cart empty), otherwise the integer parsed from the badge's content-desc.
+   */
+  async getCartBadgeCount() {
+    const badge = await this.driver.$(this.cartBadge);
+    if (!(await badge.isDisplayed().catch(() => false))) return 0;
+    const text = await badge.getAttribute(this.attrName);
+    return parseInt(text, 10);
+  }
+
+  /**
    * Get attributes of the first visual product in the grid.
    */
   async getFirstProductDetails() {
     const firstProduct = await this.driver.$(this.firstProductCard);
     await firstProduct.waitForDisplayed({ timeout: 5000 });
     return await firstProduct.getAttribute(this.attrName);
+  }
+
+  /**
+   * Pick a random visible product card from the current grid.
+   * Returns `{ el, name, price }`. Caller is responsible for the tap.
+   * Logs the choice for failure-mode traceability.
+   */
+  async pickRandomProduct() {
+    const cards = await this.driver.$$(this.clickableItems);
+    const candidates = [];
+    for (const c of cards) {
+      const desc = await c.getAttribute(this.attrName);
+      if (desc && desc.includes('$')) candidates.push({ el: c, desc });
+    }
+    if (candidates.length === 0) throw new Error('No product cards found on grid');
+    const pick = candidates[Math.floor(Math.random() * candidates.length)];
+    const [name, price] = pick.desc.split('\n');
+    console.log(`[ProductGridPage] picked random product: "${name}" ${price}`);
+    return { el: pick.el, name, price };
+  }
+
+  /**
+   * Pick a random product whose direct-add NAF button is currently rendered.
+   *
+   * Partial cards at the bottom of the viewport render the card ImageView but
+   * NOT the add-to-cart Button child (Flutter only lays out fully-visible
+   * children). This helper filters those out so the caller can tap the
+   * returned `addBtn` without scroll choreography.
+   */
+  async pickRandomProductDirectAdd() {
+    const cards = await this.driver.$$(this.clickableItems);
+    const candidates = [];
+    for (const c of cards) {
+      const desc = await c.getAttribute(this.attrName);
+      if (!desc || !desc.includes('$')) continue;
+      const btn = await c.$('android=new UiSelector().className("android.widget.Button")');
+      if (!(await btn.isDisplayed().catch(() => false))) continue;
+      candidates.push({ el: c, desc, addBtn: btn });
+    }
+    if (candidates.length === 0) throw new Error('No fully-rendered product cards with add button found');
+    const pick = candidates[Math.floor(Math.random() * candidates.length)];
+    const [name, price] = pick.desc.split('\n');
+    console.log(`[ProductGridPage] picked random product (direct-add): "${name}" ${price}`);
+    return { addBtn: pick.addBtn, name, price };
+  }
+
+  /**
+   * Return the names of every currently-rendered product card whose
+   * direct-add button is in the a11y tree. Caller iterates by name and
+   * re-resolves each card freshly (refs go stale after each add+snackbar).
+   */
+  async getVisibleProductNames() {
+    const cards = await this.driver.$$(this.clickableItems);
+    const names = [];
+    for (const c of cards) {
+      const desc = await c.getAttribute(this.attrName);
+      if (!desc || !desc.includes('$')) continue;
+      const btn = await c.$('android=new UiSelector().className("android.widget.Button")');
+      if (!(await btn.isDisplayed().catch(() => false))) continue;
+      names.push(desc.split('\n')[0]);
+    }
+    return names;
+  }
+
+  /**
+   * Tap the direct-add NAF button on a specific product card by name.
+   * Resolves the card fresh each call so it survives grid re-renders.
+   */
+  async tapDirectAddByName(name) {
+    const escaped = name.replace(/"/g, '\\"');
+    const cardSelector = this.isAndroid
+      ? `android=new UiSelector().className("android.widget.ImageView").descriptionContains("${escaped}")`
+      : `~card-${name}`;
+    const card = await this.driver.$(cardSelector);
+    const addBtn = await card.$('android=new UiSelector().className("android.widget.Button")');
+    await addBtn.click();
   }
 
   /**

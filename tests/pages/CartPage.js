@@ -22,6 +22,13 @@ class CartPage extends BasePage {
     this.continueShoppingBtn = this.isAndroid
       ? 'android=new UiSelector().className("android.widget.Button").description("Continue Shopping")'
       : '~Continue Shopping';
+
+    // Cart line items — ImageView with content-desc `<Name>\n$<total>\n<qty>`.
+    // Total label is a View (not ImageView), so filtering by ImageView + "$"
+    // isolates lines cleanly. Verified against `dumps/cart_with_items.xml`.
+    this.lineItem = this.isAndroid
+      ? 'android=new UiSelector().className("android.widget.ImageView").descriptionContains("$")'
+      : '~cart-line-item';
   }
 
   async waitForPageLoad() {
@@ -31,6 +38,15 @@ class CartPage extends BasePage {
   async clickContinueShopping() {
     const btn = await this.driver.$(this.continueShoppingBtn);
     await btn.click();
+  }
+
+  /**
+   * Count cart line items currently rendered. Caller is responsible for
+   * scrolling first if the cart is longer than the viewport.
+   */
+  async getLineCount() {
+    const lines = await this.driver.$$(this.lineItem);
+    return lines.length;
   }
 }
 
