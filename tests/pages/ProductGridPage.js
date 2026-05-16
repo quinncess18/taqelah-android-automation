@@ -309,9 +309,14 @@ class ProductGridPage extends BasePage {
    * Mandates visual verification of every card (Image, Name, Price).
    */
   async verifyFullCatalogIntegrity() {
+    // Reset to top so Playwright retries don't start mid-scroll (beforeAll
+    // doesn't re-run on retry, so a failed attempt leaves the grid scrolled
+    // and subsequent attempts can only ever see the bottom rows).
+    await this.resetToTop(1);
+
     let collectedItems = new Set();
     let scrollCount = 0;
-    const maxFlicks = 35;
+    const maxFlicks = 50;
     const totalGoal = 32;
 
     const { width, height } = await this.driver.getWindowRect();
@@ -393,6 +398,10 @@ class ProductGridPage extends BasePage {
       ]);
       await this.driver.pause(this.settlePause);
     }
+
+    // Extra settle before final scan — on CI's render-lagged emulator the
+    // bottom row sometimes isn't queryable on the immediate post-tug frame.
+    await this.driver.pause(this.settlePause * 2);
 
     // Final visual scan at the absolute bottom
     const finalItems = await this.driver.$$(this.clickableItems);
