@@ -2,7 +2,7 @@
 
 Defines the test coverage and verification strategy for the Taqelah mobile application.
 
-**Current scope:** Android emulators — Pixel 8 (API 35, local) + Pixel Tablet (API 35, local) for full coverage; CI runs Pixel 6 profile at API 34 (Android 14, google_apis target). 55 TCs across 7 modules verified on local; CI on API 34 with `retries: 2` to absorb emulator flake.
+**Current scope:** Android emulators — Pixel 8 (API 35, local) + Pixel Tablet (API 35, local) for full coverage; CI runs Pixel 6 profile at API 34 (Android 14, google_apis target). 71 TCs across 13 modules (Auth, Catalog, Nav Main, Gestures, WebView, Dialogs, Form, Permissions, Notifications, Tabs, Camera, Location, Dark Mode, Products+Search) verified on local; CI on API 34 with `retries: 2` to absorb emulator flake.
 
 **Roadmap:** iOS platform support (iPhone 15 Pro, iPad) post-June workshop.
 
@@ -27,6 +27,7 @@ Each module's supported Android API range is an explicit contract. A new module 
 | Camera (03/09) | 30 | 35 | Uses Android 11+ "While using the app" permission dialog (`permission_allow_foreground_only_button`). API 29 fallbacks not retained — the DemoApp's Camera screen targets the modern foreground-only model. |
 | **Location (03/10)** | 29 | 35 | No version-gated dialog widgets. **Pixel Tablet AVD skipped at runtime** (`width > 1200` → `test.skip`) — emulator-5556's GPS provider does not emit fixes within practical timeouts, so the Current Location card never renders even with OS permission granted. Module is Pixel 8 + CI Pixel 6 only until `mobile: setGeoLocation` injection or real-device cloud is wired. |
 | **Dark Mode (03/11)** | 29 | 35 | No version-gated widgets. Cross-cutting smoke that visits every previously-tested page in dark mode and validates AppBar background via 3-spot pixel sampling. Location step is skipped on Pixel Tablet only (inherits 10/Location's GPS limitation). |
+| **Products + Search (04/01)** | 29 | 35 | No version-gated widgets. Pixel Tablet runs in **forced portrait** — orientation lock applied AFTER login via `mobile: shell` + `settings put system user_rotation 1`. Without rotation, Pixel Tablet's natural landscape (2560×1600) makes product cards taller than the viewport and NAF add-to-cart child Buttons don't enter the a11y tree. W3C `setOrientation` is a no-op on UIA2. |
 
 **Operating contract:**
 - Adding a new module → declare its min API + reason. If hardware-feature-gated, document the workaround.
@@ -60,6 +61,8 @@ Each module's supported Android API range is an explicit contract. A new module 
 | **TC-C09** | Evening Dresses data + sort + cart integrity | Data-Driven | ✅ | ✅ |
 | **TC-C10** | Party Dresses data + sort + cart integrity | Data-Driven | ✅ | ✅ |
 | **TC-C11** | Boho Dresses data + sort + cart integrity | Data-Driven | ✅ | ✅ |
+
+> **TC-C04 retry-resilience (2026-05-16):** `verifyFullCatalogIntegrity()` now `resetToTop(1)` at start so Playwright retries (which don't re-run `beforeAll`) start from top, not from a failed-attempt's mid-scroll position. `maxFlicks` bumped 35→50 and an extra `pause(settlePause*2)` between the power-tug and final scan absorbs CI render lag. Diagnostic dumps in `test-results/diagnostics/catalog-*.json` (CI-only) capture per-flick state for future debugging.
 
 ## 3. Navigation & Gestures
 | Test ID | Description | Strategy | Pixel 8 | Pixel Tablet |
@@ -214,7 +217,7 @@ Each module's supported Android API range is an explicit contract. A new module 
 > **Location pre-swipe:** Mirrored from `10_location.spec.js` — one drawer-column swipe before tapping Location so the tap target is centred instead of clipped at the drawer's bottom edge.
 > **Retry-tolerant returnHome:** `driver.back()` is called up to 3 times waiting for Home's `shopAllBtn`. Some module screens (Form's auto-focused EditText) raise the soft keyboard and the first back dismisses the keyboard rather than exiting the page; the retry absorbs this without per-module branching.
 
-## 12. Product Detail + Add to Cart (planned)
+## 12. Product Detail + Add to Cart
 
 **Spec:** `tests/specs/04_products/01_product_detail_add.spec.js`
 **Flow:** Shop All → Detail (color-variant add ×2) → Casual Category → Detail (add) → Evening Category → direct add. Cart cascade ends with 4 lines.
@@ -239,7 +242,7 @@ Each module's supported Android API range is an explicit contract. A new module 
 
 > **Cross-device:** Pixel Tablet runs in **forced portrait** for this spec — natural landscape (2560×1600) makes product cards taller than the viewport. Lock is applied AFTER login via `mobile: shell` + `settings put system user_rotation 1`. The W3C `driver.setOrientation()` is deprecated and silently no-ops on UIA2; `mobile: setOrientation` is not registered. See `feedback_uia2_orientation_api.md` in memory.
 
-## 13. Search (planned)
+## 13. Search
 
 **Spec:** lives in `tests/specs/04_products/01_product_detail_add.spec.js` (folded with PD).
 **Scope:** Search bar is NOT on Catalog Landing — it lives on the Shop All ("All Dresses") grid and each Category grid (Casual / Evening / Party / Boho). TC-SR01 exercises **Party** with keyword `"Cocktail"` (3 matches: Lace, Mint, Navy) and adds all 3; TC-SR02 exercises **Boho** with `"shorts"` for an off-catalog clothing-domain negative.

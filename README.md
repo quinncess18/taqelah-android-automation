@@ -16,8 +16,9 @@ Production-grade automation framework for the **Taqelah Boutique** Flutter appli
 - **Camera:** ✅ TC-CM01–CM07 — Pixel 8 + Pixel Tablet. Two-reset spec: Granted Path (CM01–CM04) covers live preview shutter + flip + "Photo Captured!" chip + `Photo saved: CAP<id>.jpg` toast + captured→live header-back-arrow transition; Denied Path (CM05–CM07) covers single deny → "Camera permission denied" + "Open Settings", 2× deny → permanent denial dialog suppression, and Open Settings deep-link to Android Settings via `driver.getCurrentPackage()`. Flutter camera widgets are NAF=true with no content-desc/resource-id, so selectors anchor on clickable-instance order (header Back=0, shutter/back-arrow=1, flip=2). Emulator's "Entering camera mode" tutorial dismissed via `CameraPage.dismissEmulatorTutorialIfPresent()` — no-op on real devices.
 - **Location:** ✅ TC-LO01–LO08 — Pixel 8 only (Pixel Tablet skipped: emulator-5556 GPS provider does not emit fixes within practical timeouts, so the Current Location card never renders; OS-level permission is granted but the AVD's underlying location service is silent — confirmed by manual verification with "Allow only while using" + "Use precise location" set). Two-reset spec: Granted Path (LO01–LO05) covers cold-entry OS dialog, "While using" grant → idle granted screen, Start Tracking → tracking state + first history entry, 5 additional Start/Stop cycles → ≥ 6 history entries with LIFO display order + verify-and-retry cycle helper, and re-entry persistence (permission persists, history is screen-session-scoped and resets); Denied Path (LO06–LO08) covers single deny → "Location permission denied" + "Open Settings", Open Settings deep-link with return-state assertion, and 2× deny → permanent denial suppression. History list is a Flutter `ListView.builder`-style virtualized list (~5 entries visible at a time on phone; older entries require scroll); `collectAllHistoryEntries()` scroll-and-dedupes. No eviction observed at ≤ 10 entries.
 - **Dark Mode (cross-cutting smoke):** ✅ TC-DK01–DK03 — Pixel 8 + Pixel Tablet. Visits every previously-tested page after toggling the drawer's Dark Mode setting ON and asserts each samples as dark (3-spot AppBar pixel sampling vs a light baseline captured pre-toggle, delta ≥ 80). Walk order: Catalog Landing → Shop All → Casual → Evening → Party → Boho → Cart → About (scroll → asserts the in-page Dark Mode Switch is also ON, synced with the drawer) → Gestures → WebView (navigate-only, sample skipped — web content not app-themed) → Dialogs → Form → Permissions → Notifications → Tabs → Camera (deny dialog) → Location (deny dialog, Pixel 8 only). DK03 toggles OFF and verifies Home returns to within ±30 of baseline. Includes Location pre-swipe (drawer-edge tap avoidance, mirrored from 10/Location) and retry-tolerant `returnHome` (back-button retried up to 3× to absorb Form's soft-keyboard dismissal).
+- **Products — Product Detail + Add to Cart + Search:** ✅ TC-PD01–PD06 + TC-SR01–SR02 — Pixel 8 + Pixel Tablet (tablet rotated to portrait via `mobile: shell user_rotation=1` post-login; W3C `setOrientation` is a no-op on UIA2). Cross-cutting cascade: Shop All → Detail → 2 color variants → Casual category → Detail (add) → Evening category → direct-add via card icon → Party search "Cocktail" → add all 3 cocktail matches → Boho search "shorts" → empty state. Ends with cart badge=7. SR01 uses bottom-up scroll pattern (scroll down first, iterate matches in reverse) to absorb the Snackbar's ≥5s VIEW CART persistence. POMs: `ProductDetailPage`, `ProductGridPage` (gains `cartBadge`/search/direct-add helpers), `CartPage` (gains `lineItem`/`getLineCount`); snackbar helpers + `attrName` promoted to `BasePage`.
 
-- **Upcoming:** Real-device cloud for full Location coverage (mock-location injection or LambdaTest/Firebase Test Lab) — emulator GPS is unreliable across AVDs.
+- **Upcoming:** §14 Cart spec (TC-S01–S05). Real-device cloud for full Location coverage (mock-location injection or LambdaTest/Firebase Test Lab) — emulator GPS is unreliable across AVDs.
 
 
 ## 🚀 Key Features
@@ -39,7 +40,8 @@ Production-grade automation framework for the **Taqelah Boutique** Flutter appli
 │   └── specs/            # Test suites organized by module
 │       ├── 01_auth/      # Authentication & Security tests
 │       ├── 02_catalog/   # Home, Grid, Categories
-│       └── 03_nav/       # Navigation routing & Gestures
+│       ├── 03_nav/       # Navigation routing & Gestures
+│       └── 04_products/  # Product Detail, Add to Cart, Search
 └── playwright.config.js  # Main configuration for the test runner
 ```
 
@@ -88,6 +90,7 @@ npm run test:tabs          # 03_nav/08_tabs.spec.js
 npm run test:camera        # 03_nav/09_camera.spec.js
 npm run test:location      # 03_nav/10_location.spec.js (Pixel 8 only — tablet auto-skipped)
 npm run test:darkmode      # 03_nav/11_dark_mode.spec.js (cross-cutting smoke; Location step tablet-skipped)
+npm run test:products      # 04_products/01_product_detail_add.spec.js (tablet auto-rotates to portrait post-login)
 
 # Single spec against a specific device
 
@@ -109,6 +112,7 @@ Each module declares its supported Android API range as an explicit contract.
 | **Notifications** | **33** | `POST_NOTIFICATIONS` is API 33+. CI MUST run API 33+ for this module to verify. |
 | **Location** | 29 | No version-gated APIs. Pixel Tablet AVD runtime-skipped (`width > 1200`) — emulator-5556's GPS provider does not emit fixes. Module runs on Pixel 8 + CI Pixel 6 only until mock-location injection or real-device cloud is wired. |
 | **Dark Mode** | 29 | Cross-cutting smoke. Inherits 10/Location's tablet-skip for the Location step only; rest of the walk runs on both devices. |
+| **Products (04/01)** | 29 | No version-gated widgets. Pixel Tablet runs in **forced portrait** — orientation lock applied AFTER login via `mobile: shell` + `settings put system user_rotation 1`. Without rotation, Pixel Tablet's natural landscape makes product cards taller than the viewport and NAF add-to-cart child Buttons don't enter the a11y tree. |
 
 See `TEST_PLAN.md → API Compatibility Matrix` for the operating contract (how to declare modules, what to do when bumping CI API).
 
