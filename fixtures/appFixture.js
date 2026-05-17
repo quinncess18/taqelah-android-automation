@@ -131,18 +131,36 @@ const test = base.extend({
     async ({ driver }, use, testInfo) => {
       await use();
       if (testInfo.status === testInfo.expectedStatus) return;
+
+      // Bounded ping — without a timeout, `getPageSource()` itself can hang
+      // for minutes when UIA2 is half-dead (observed CI run 25982400098:
+      // LO02 fail → 3m31s before next test). If the ping doesn't resolve
+      // within 5s, treat the session as dead.
+      const pingT0 = Date.now();
+      const pingTimeout = 5000;
+      let sessionAlive = false;
       try {
-        await driver.getPageSource();
-        return; // session healthy — failure was an in-test assertion / selector, not a crash
-      } catch {
+        await Promise.race([
+          driver.getPageSource().then(() => { sessionAlive = true; }),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('ping timeout')), pingTimeout)),
+        ]);
+      } catch (err) {
         // fall through to reload
       }
-      console.warn(`[appFixture] session dead after failed test "${testInfo.title}"; reloading`);
+      console.log(`[recovery] ping took ${Date.now() - pingT0}ms, sessionAlive=${sessionAlive}`);
+      if (sessionAlive) return;
+
+      console.warn(`[recovery] session dead after failed test "${testInfo.title}"; reloading`);
+      const reloadT0 = Date.now();
       try {
-        await driver.reloadSession();
-        console.log('[appFixture] session reloaded');
+        // Bound the reload too — on a hosed AVD it can never complete.
+        await Promise.race([
+          driver.reloadSession(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('reload timeout')), 60000)),
+        ]);
+        console.log(`[recovery] session reloaded in ${Date.now() - reloadT0}ms`);
       } catch (reloadErr) {
-        console.error(`[appFixture] reloadSession failed: ${reloadErr.message}`);
+        console.error(`[recovery] reloadSession failed after ${Date.now() - reloadT0}ms: ${reloadErr.message}`);
       }
     },
     { auto: true },
