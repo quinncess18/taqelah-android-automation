@@ -341,4 +341,19 @@ test.describe('Products Module — Product Detail + Add to Cart', () => {
     expect(await gridPage.getVisibleProductNames()).toHaveLength(0);
     expect(await gridPage.getCartBadgeCount()).toBe(7);
   });
+
+  // Restore tablet to natural landscape so downstream specs don't inherit
+  // Products' portrait lock. No-op on phone (width <= 1200).
+  test.afterAll(async ({ driver }) => {
+    const { width } = await driver.getWindowRect();
+    if (width > 1200) {
+      try {
+        await driver.execute('mobile: shell', { command: 'settings', args: ['put', 'system', 'user_rotation', '0'] });
+        await driver.execute('mobile: shell', { command: 'settings', args: ['put', 'system', 'accelerometer_rotation', '1'] });
+        await driver.pause(2000);
+      } catch (e) {
+        console.log(`[afterAll] orientation revert failed: ${e?.message || e}`);
+      }
+    }
+  });
 });
