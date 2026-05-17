@@ -109,15 +109,24 @@ class LocationPage extends BasePage {
    */
   async waitForGrantedIdle() {
     // Card-render is gated on a GPS fix. Local Pixel 8 returns sub-second;
-    // Pixel Tablet AVD ~10–15s; CI Pixel 6 cold-boot has been observed to
-    // exceed 25s and crash the UiAutomator2 instrumentation. The spec calls
-    // warmupGeo() before granting permission so a fix is queued and the
-    // card renders almost immediately — the 60s ceiling here is defensive
-    // headroom for CI cases where the injection itself races the app.
+    // Pixel Tablet AVD ~10–15s; CI Pixel 6 cold-boot is variable.
+    //
+    // 2026-05-17: Card timeout dropped 60s → 20s after CI run 25980717553
+    // showed a 60s wait starving UiAutomator2 long enough that the AVD's
+    // own `system_server` crashed (`Can't find service: activity`),
+    // cascading-skipping every downstream Location TC. Better to fail fast
+    // and let Playwright retry with `beforeEach` cascade replay than let
+    // UIA2 hang. Wrapped in try/catch so a card timeout surfaces as a
+    // clear assertion failure instead of crashing the runner.
     const t0 = Date.now();
     await this.waitForDisplayed(this.screenTitle, 15000);
     console.log(`[LO02] title visible at +${Date.now() - t0}ms`);
-    await this.waitForDisplayed(this.currentLocationCard, 60000);
+    try {
+      await this.waitForDisplayed(this.currentLocationCard, 20000);
+    } catch (err) {
+      console.warn(`[LO02] card wait failed at +${Date.now() - t0}ms — likely GPS warm-up race; throwing for retry`);
+      throw err;
+    }
     console.log(`[LO02] card visible at +${Date.now() - t0}ms`);
     await this.waitForDisplayed(this.refreshBtn, 10000);
     console.log(`[LO02] refresh visible at +${Date.now() - t0}ms`);
@@ -140,45 +149,17 @@ class LocationPage extends BasePage {
     if (!this.isAndroid) return;
     try {
       await this.driver.execute('mobile: setGeolocation', { latitude, longitude, altitude });
-      await this.driver.pause(500);
+      // 2026-05-17: bumped 500ms → 2500ms after CI run 25980717553 showed
+      // `setGeolocation` returning immediately but the system location
+      // provider needing seconds to propagate the fix to subscribers.
+      // `mobile: getGeolocation` was tried as a deterministic verification
+      // gate but throws 500 ("Cannot execute the 'retrieve geolocation'
+      // action") on the CI runner — unusable. The longer pause is a
+      // probabilistic improvement: still a race, but a wider window.
+      await this.driver.pause(2500);
     } catch (err) {
       console.warn(`[LocationPage] warmupGeo non-fatal: ${err.message}`);
     }
-  }
-
-  /**
-   * Poll `mobile: getGeolocation` until it returns coordinates close to the
-   * injected warmupGeo target, or the timeout expires. Closes the race
-   * between `setGeolocation` (returns immediately) and the Android system
-   * location provider actually propagating the fix to subscribers — on
-   * cold CI emulators that propagation can take several seconds, and if
-   * the app polls before the provider has the fix, the granted-state card
-   * stalls on real GPS (which never warms).
-   *
-   * Returns true if a matching fix is observed, false on timeout (caller
-   * decides whether to proceed regardless — typically yes, since the
-   * 60s card wait still provides a safety net).
-   */
-  async waitForGeoFix({ latitude = 1.2966, longitude = 103.8547, toleranceDeg = 0.01, timeoutMs = 10000, intervalMs = 300 } = {}) {
-    if (!this.isAndroid) return true;
-    const t0 = Date.now();
-    while (Date.now() - t0 < timeoutMs) {
-      try {
-        const fix = await this.driver.execute('mobile: getGeolocation');
-        if (fix && typeof fix.latitude === 'number' && typeof fix.longitude === 'number') {
-          if (Math.abs(fix.latitude - latitude) <= toleranceDeg &&
-              Math.abs(fix.longitude - longitude) <= toleranceDeg) {
-            console.log(`[LO02] geo fix confirmed at +${Date.now() - t0}ms (${fix.latitude}, ${fix.longitude})`);
-            return true;
-          }
-        }
-      } catch (err) {
-        // getGeolocation can throw early in session lifecycle; tolerate and retry.
-      }
-      await this.driver.pause(intervalMs);
-    }
-    console.warn(`[LO02] waitForGeoFix timeout after ${timeoutMs}ms — proceeding without verified fix`);
-    return false;
   }
 
   /**

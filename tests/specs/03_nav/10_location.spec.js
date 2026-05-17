@@ -57,10 +57,6 @@ async function gotoLocationFresh(driver) {
   // instead of waiting on the AVD's slow provider warm-up (the root cause
   // of TC-LO02 timing out + UIA2 crashing on CI Pixel 6 cold boot).
   await locationPage.warmupGeo();
-  // Deterministic gate: only proceed once the system provider actually
-  // has the injected fix. Closes the propagation race that previously
-  // caused TC-LO02's card wait to hang on CI cold-boot.
-  await locationPage.waitForGeoFix();
 
   await navMenu.navigateTo(navMenu.navLocation);
 

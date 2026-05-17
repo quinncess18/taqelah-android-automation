@@ -316,13 +316,22 @@ class ProductGridPage extends BasePage {
 
     let collectedItems = new Set();
     let scrollCount = 0;
-    const maxFlicks = 50;
+    // 2026-05-17: switched from fast full-viewport flicks to slower half-
+    // viewport scrolls. CI run 25980717553 showed the previous fast flicks
+    // racing the Flutter a11y bridge — rows entered and exited the viewport
+    // between scroll and scan, so 4/32 items were never captured (different
+    // items each run, confirming non-determinism). With half-viewport scrolls
+    // every row stays in the viewport across two scroll positions, so each
+    // item gets two chances to enter the a11y tree. Slower swipe duration
+    // (1000 → 1500ms) gives the bridge time to update before the next scan.
+    const maxFlicks = 80;
     const totalGoal = 32;
 
     const { width, height } = await this.driver.getWindowRect();
     const isTablet = width > 1200;
     const safeX = Math.round(width * 0.3);
-    const swipeDepth = isTablet ? 0.75 : 0.55;
+    const swipeDepth = isTablet ? 0.375 : 0.275;
+    const swipeDuration = 1500;
 
     // CI-only diagnostic dump every 5 flicks — TC-C04 keeps regressing on the
     // GHA runner (commit 35c65e8 hit it again with 3 retries). Local doesn't
@@ -376,13 +385,15 @@ class ProductGridPage extends BasePage {
             { type: 'pointerMove', duration: 0, x: safeX, y: Math.round(height * 0.8) },
             { type: 'pointerDown', button: 0 },
             { type: 'pointerMove', duration: 10, x: safeX, y: Math.round(height * 0.8) - 20 },
-            { type: 'pointerMove', duration: 1000, origin: 'viewport', x: safeX, y: Math.round(height * (0.8 - swipeDepth)) },
+            { type: 'pointerMove', duration: swipeDuration, origin: 'viewport', x: safeX, y: Math.round(height * (0.8 - swipeDepth)) },
             { type: 'pointerUp', button: 0 },
           ],
         },
       ]);
       scrollCount++;
-      await this.driver.pause(this.settlePause);
+      // Extended settle (1.5x) so the Flutter a11y bridge can update
+      // between the scroll landing and the next scan iteration.
+      await this.driver.pause(Math.round(this.settlePause * 1.5));
     }
 
     // MANDATORY POWER-TUG SETTLE: Force the absolute bottom row into focus

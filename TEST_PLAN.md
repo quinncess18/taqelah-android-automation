@@ -64,6 +64,8 @@ Each module's supported Android API range is an explicit contract. A new module 
 
 > **TC-C04 retry-resilience (2026-05-16):** `verifyFullCatalogIntegrity()` now `resetToTop(1)` at start so Playwright retries (which don't re-run `beforeAll`) start from top, not from a failed-attempt's mid-scroll position. `maxFlicks` bumped 35→50 and an extra `pause(settlePause*2)` between the power-tug and final scan absorbs CI render lag. Diagnostic dumps in `test-results/diagnostics/catalog-*.json` (CI-only) capture per-flick state for future debugging.
 
+> **TC-C04 scroll rework (2026-05-17):** After CI run 25980717553 showed C04 still failing 3/3 attempts (stuck at 28/32 with different items missing each run), the scan strategy was reworked. Fast full-viewport flicks were racing the Flutter a11y bridge — rows entered and exited viewport between scroll and scan. Switched to slower half-viewport scrolls (`swipeDepth` 0.55/0.75 → 0.275/0.375), 1500ms swipe duration, and 1.5x inter-scroll settle. Every row now stays in viewport across two scroll positions, giving each item two chances to enter the a11y tree. `maxFlicks` bumped 50→80 to compensate for smaller increments. Also: `02_catalog/01_landing.spec.js` got the retry-recoverable cascade pattern (per-TC action helpers + `beforeEach` replay from `pm clear` baseline) so failed retries no longer compound — fixes the prior "attempt 2 stuck at 6/32" cascade poisoning.
+
 ## 3. Navigation & Gestures
 | Test ID | Description | Strategy | Pixel 8 | Pixel Tablet |
 | :--- | :--- | :--- | :---: | :---: |
