@@ -147,6 +147,41 @@ class LocationPage extends BasePage {
   }
 
   /**
+   * Poll `mobile: getGeolocation` until it returns coordinates close to the
+   * injected warmupGeo target, or the timeout expires. Closes the race
+   * between `setGeolocation` (returns immediately) and the Android system
+   * location provider actually propagating the fix to subscribers — on
+   * cold CI emulators that propagation can take several seconds, and if
+   * the app polls before the provider has the fix, the granted-state card
+   * stalls on real GPS (which never warms).
+   *
+   * Returns true if a matching fix is observed, false on timeout (caller
+   * decides whether to proceed regardless — typically yes, since the
+   * 60s card wait still provides a safety net).
+   */
+  async waitForGeoFix({ latitude = 1.2966, longitude = 103.8547, toleranceDeg = 0.01, timeoutMs = 10000, intervalMs = 300 } = {}) {
+    if (!this.isAndroid) return true;
+    const t0 = Date.now();
+    while (Date.now() - t0 < timeoutMs) {
+      try {
+        const fix = await this.driver.execute('mobile: getGeolocation');
+        if (fix && typeof fix.latitude === 'number' && typeof fix.longitude === 'number') {
+          if (Math.abs(fix.latitude - latitude) <= toleranceDeg &&
+              Math.abs(fix.longitude - longitude) <= toleranceDeg) {
+            console.log(`[LO02] geo fix confirmed at +${Date.now() - t0}ms (${fix.latitude}, ${fix.longitude})`);
+            return true;
+          }
+        }
+      } catch (err) {
+        // getGeolocation can throw early in session lifecycle; tolerate and retry.
+      }
+      await this.driver.pause(intervalMs);
+    }
+    console.warn(`[LO02] waitForGeoFix timeout after ${timeoutMs}ms — proceeding without verified fix`);
+    return false;
+  }
+
+  /**
    * Wait for the tracking state (post Start Tracking tap).
    */
   async waitForTrackingState() {
