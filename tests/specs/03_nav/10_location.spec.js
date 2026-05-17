@@ -69,6 +69,50 @@ async function gotoLocationFresh(driver) {
   return locationPage;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Retry-recoverable cascade for the Granted Path.
+//
+// Playwright retries only re-run the test body — not beforeAll, not prior
+// TCs. On CI's render-lag-prone Pixel 6 a single spike on LO02 or LO03
+// strands the app in some half-granted state; the retry then assertion-
+// fails against the same broken state. We gate a per-TC replay on
+// `testInfo.retry > 0` so green runs pay zero cost; failed retries replay
+// the prior cascade from a `pm clear` baseline.
+//
+// LO04 and LO05 keep their existing bespoke `getCurrentState()` self-
+// recovery — that code is defensive and harmless on top of the new
+// beforeEach replay. See `feedback-mid-cascade-retry`.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const GRANTED_SEQUENCE = ['LO01', 'LO02', 'LO03', 'LO04', 'LO05'];
+
+async function replayGrantedPathUpTo(driver, targetTC) {
+  const idx = GRANTED_SEQUENCE.indexOf(targetTC);
+  if (idx < 0) throw new Error(`Unknown TC for replay: ${targetTC}`);
+
+  // Cold-restart to dialog state (= end of LO01).
+  const lp = await gotoLocationFresh(driver);
+
+  // LO02 → accept + reach granted-idle.
+  if (idx >= 2) {
+    await lp.acceptWhileUsing();
+    await lp.waitForGrantedIdle();
+  }
+  // LO03 → start tracking, reach tracking state with first history entry.
+  if (idx >= 3) {
+    await lp.tapStartTracking();
+    await lp.waitForTrackingState();
+  }
+  // LO04 → stop + 5 more Start/Stop cycles → 6 entries, stopped state.
+  if (idx >= 4) {
+    await lp.tapStopTracking();
+    for (let i = 0; i < 5; i++) {
+      await lp.cycleStartStop();
+    }
+  }
+  return lp;
+}
+
 test.describe('Navigation - Location Suite — Granted Path (TC-LO01-LO05)', () => {
   let locationPage;
 
@@ -85,6 +129,17 @@ test.describe('Navigation - Location Suite — Granted Path (TC-LO01-LO05)', () 
 
     locationPage = await gotoLocationFresh(driver);
     // Dialog is on screen; TC-LO01 verifies it before LO02 grants.
+  });
+
+  test.beforeEach(async ({ driver }, testInfo) => {
+    if (testInfo.retry === 0) return;
+    const { width } = await driver.getWindowRect();
+    if (width > 1200) return; // tablet path is skipped at describe-level
+    const m = testInfo.title.match(/TC-(LO0\d)/);
+    if (!m) return;
+    const tc = m[1];
+    console.log(`[beforeEach] retry #${testInfo.retry} for ${tc} — replaying granted-path cascade`);
+    locationPage = await replayGrantedPathUpTo(driver, tc);
   });
 
   test('TC-LO01: should display the OS Location permission dialog on first cold entry', async () => {
