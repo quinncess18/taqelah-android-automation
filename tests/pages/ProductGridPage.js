@@ -357,9 +357,15 @@ class ProductGridPage extends BasePage {
         }
       }
 
-      if (scrollCount % 5 === 0) dumpCatalog(`flick${String(scrollCount).padStart(2, '0')}`);
+      if (scrollCount % 5 === 0) {
+        dumpCatalog(`flick${String(scrollCount).padStart(2, '0')}`);
+        console.log(`[C04] flick ${scrollCount}: ${collectedItems.size}/${totalGoal}`);
+      }
 
-      if (collectedItems.size >= totalGoal) break;
+      if (collectedItems.size >= totalGoal) {
+        console.log(`[C04] reached goal at flick ${scrollCount}`);
+        break;
+      }
 
       await this.driver.performActions([
         {
@@ -413,6 +419,15 @@ class ProductGridPage extends BasePage {
     }
 
     dumpCatalog('final');
+
+    if (collectedItems.size < totalGoal) {
+      const data = require('../data/products');
+      const expected = Object.values(data.categories).flatMap(c => c.products.map(p => p.name));
+      const missing = expected.filter(n => !collectedItems.has(n));
+      console.log(`[C04] FINAL ${collectedItems.size}/${totalGoal} — missing: [${missing.join(', ')}]`);
+    } else {
+      console.log(`[C04] FINAL ${collectedItems.size}/${totalGoal} OK`);
+    }
 
     return collectedItems.size >= totalGoal;
   }

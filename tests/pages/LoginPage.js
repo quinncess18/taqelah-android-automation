@@ -61,9 +61,11 @@ class LoginPage extends BasePage {
   }
 
   async waitForPageLoad() {
+    const t0 = Date.now();
     const { width } = await this.driver.getWindowRect();
     if (width > 1200) await this.resetToTop();
     await this.waitForDisplayed(this.title);
+    console.log(`[L01] login title visible at +${Date.now() - t0}ms (width=${width})`);
     await this.driver.pause(1000);
   }
 

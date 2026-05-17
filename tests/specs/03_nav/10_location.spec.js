@@ -217,8 +217,12 @@ test.describe('Navigation - Location Suite — Granted Path (TC-LO01-LO05)', () 
       cycles = 6;
     }
 
+    console.log(`[LO04] starting ${cycles} Start/Stop cycles (state="${state}")`);
+    const lo04T0 = Date.now();
     for (let i = 0; i < cycles; i++) {
+      const cycleT0 = Date.now();
       await locationPage.cycleStartStop();
+      console.log(`[LO04] cycle ${i + 1}/${cycles} done in ${Date.now() - cycleT0}ms (total +${Date.now() - lo04T0}ms)`);
     }
 
     // Final state: stopped — Start Tracking restored, indicator gone.

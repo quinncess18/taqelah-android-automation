@@ -114,10 +114,15 @@ class LocationPage extends BasePage {
     // warmupGeo() before granting permission so a fix is queued and the
     // card renders almost immediately — the 60s ceiling here is defensive
     // headroom for CI cases where the injection itself races the app.
+    const t0 = Date.now();
     await this.waitForDisplayed(this.screenTitle, 15000);
+    console.log(`[LO02] title visible at +${Date.now() - t0}ms`);
     await this.waitForDisplayed(this.currentLocationCard, 60000);
+    console.log(`[LO02] card visible at +${Date.now() - t0}ms`);
     await this.waitForDisplayed(this.refreshBtn, 10000);
+    console.log(`[LO02] refresh visible at +${Date.now() - t0}ms`);
     await this.waitForDisplayed(this.startTrackingBtn, 10000);
+    console.log(`[LO02] startTracking visible at +${Date.now() - t0}ms — granted-idle OK`);
   }
 
   /**
