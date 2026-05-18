@@ -342,18 +342,8 @@ test.describe('Products Module — Product Detail + Add to Cart', () => {
     expect(await gridPage.getCartBadgeCount()).toBe(7);
   });
 
-  // Restore tablet to natural landscape so downstream specs don't inherit
-  // Products' portrait lock. No-op on phone (width <= 1200).
-  test.afterAll(async ({ driver }) => {
-    const { width } = await driver.getWindowRect();
-    if (width > 1200) {
-      try {
-        await driver.execute('mobile: shell', { command: 'settings', args: ['put', 'system', 'user_rotation', '0'] });
-        await driver.execute('mobile: shell', { command: 'settings', args: ['put', 'system', 'accelerometer_rotation', '1'] });
-        await driver.pause(2000);
-      } catch (e) {
-        console.log(`[afterAll] orientation revert failed: ${e?.message || e}`);
-      }
-    }
-  });
+  // No orientation revert here — Cart (§14) chains off this spec's state
+  // and needs portrait too. The end-of-chain spec in 04_products/ owns
+  // the final revert. If running test:products alone, the tablet stays
+  // in portrait; reboot or run a downstream revert if that matters.
 });

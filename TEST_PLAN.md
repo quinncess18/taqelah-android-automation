@@ -2,7 +2,7 @@
 
 Defines the test coverage and verification strategy for the Taqelah mobile application.
 
-**Current scope:** Android emulators — Pixel 8 (API 35, local) + Pixel Tablet (API 35, local) for full coverage; CI runs Pixel 6 profile at API 34 (Android 14, google_apis target). 71 TCs across 13 modules (Auth, Catalog, Nav Main, Gestures, WebView, Dialogs, Form, Permissions, Notifications, Tabs, Camera, Location, Dark Mode, Products+Search) verified on local; CI on API 34 with `retries: 2` to absorb emulator flake.
+**Current scope:** Android emulators — Pixel 8 (API 35, local) + Pixel Tablet (API 35, local) for full coverage; CI runs Pixel 6 profile at API 34 (Android 14, google_apis target). 76 TCs across 14 modules (Auth, Catalog, Nav Main, Gestures, WebView, Dialogs, Form, Permissions, Notifications, Tabs, Camera, Location, Dark Mode, Products+Search, Cart) verified on local; CI on API 34 with `retries: 2` to absorb emulator flake.
 
 **Roadmap:** iOS platform support (iPhone 15 Pro, iPad) post-June workshop.
 
@@ -27,7 +27,8 @@ Each module's supported Android API range is an explicit contract. A new module 
 | Camera (03/09) | 30 | 35 | Uses Android 11+ "While using the app" permission dialog (`permission_allow_foreground_only_button`). API 29 fallbacks not retained — the DemoApp's Camera screen targets the modern foreground-only model. |
 | **Location (03/10)** | 29 | 35 | No version-gated dialog widgets. **Pixel Tablet AVD skipped at runtime** (`width > 1200` → `test.skip`) — emulator-5556's GPS provider does not emit fixes within practical timeouts, so the Current Location card never renders even with OS permission granted. Module is Pixel 8 + CI Pixel 6 only until `mobile: setGeoLocation` injection or real-device cloud is wired. |
 | **Dark Mode (03/11)** | 29 | 35 | No version-gated widgets. Cross-cutting smoke that visits every previously-tested page in dark mode and validates AppBar background via 3-spot pixel sampling. Location step is skipped on Pixel Tablet only (inherits 10/Location's GPS limitation). |
-| **Products + Search (04/01)** | 29 | 35 | No version-gated widgets. Pixel Tablet runs in **forced portrait** — orientation lock applied AFTER login via `mobile: shell` + `settings put system user_rotation 1`. Without rotation, Pixel Tablet's natural landscape (2560×1600) makes product cards taller than the viewport and NAF add-to-cart child Buttons don't enter the a11y tree. W3C `setOrientation` is a no-op on UIA2. |
+| **Products + Search (04/01)** | 29 | 35 | No version-gated widgets. Pixel Tablet runs in **forced portrait** — orientation lock applied AFTER login via `mobile: shell` + `settings put system user_rotation 1`. Without rotation, Pixel Tablet's natural landscape (2560×1600) makes product cards taller than the viewport and NAF add-to-cart child Buttons don't enter the a11y tree. W3C `setOrientation` is a no-op on UIA2. No orientation revert in `afterAll` — Cart (04/02) chains off this state. |
+| **Cart (04/02)** | 29 | 35 | No version-gated widgets. Chains off Products' end-state (7-line cart, portrait lock inherited). `collectAllLines()` walks the cart ScrollView on phone (Compose virtualises rows past viewport); no-ops on tablet portrait where all 7 fit. Per-line NAF Buttons (Minus/Plus/Delete) resolved via direct `.click()` on line ImageView's Button children in DOM order — sidesteps the duplicate content-desc issue with PD02 color variants and the per-device coordinate-offset problem. Cart's `afterAll` reverts tablet to landscape at end of chain. |
 
 **Operating contract:**
 - Adding a new module → declare its min API + reason. If hardware-feature-gated, document the workaround.
@@ -256,30 +257,35 @@ Each module's supported Android API range is an explicit contract. A new module 
 
 > **Bottom-up scroll pattern (SR01):** scroll the grid DOWN once so the bottom-most match is in view, then iterate visible names in REVERSE order. Between iterations, scroll UP to reveal earlier matches. The inter-iteration scroll doubles as the snackbar-dismiss delay — Material Snackbar with `VIEW CART` action persists ≥5s on rotated tablet, exceeding `waitForSnackbarDismissed`'s default budget. Phone case (all 3 fit in one viewport) degenerates cleanly to one iteration. See `feedback_bottom_up_scroll_pattern.md`.
 
-## 14. Shopping Cart (planned)
+## 14. Shopping Cart
 
 **Spec:** `tests/specs/04_products/02_cart.spec.js`
-**Cascade entry:** assumes 4 cart lines from §12 (2 color variants + 1 Casual + 1 Evening). Increment cap N=5 (matches Location's cycle budget).
+**Cascade entry:** chains off §12+§13 (7-line cart end-state). `beforeAll` taps the grid cart icon — no in-spec rebuild. The retry-replay path (`testInfo.retry > 0`) has a `pm clear` + relogin + full PD cascade + cart-icon-tap fallback for CI safety.
 
-**Cart line structure (verified from `dumps/cart_with_items.xml`):**
-- Each line = ImageView with `description="<Product>\n$<line total>\n<qty>"` (qty 1 ⇒ qty 1, qty 2 ⇒ price doubled and qty shown as 2).
-- Per line, 3 buttons in left-to-right order (selectable via `clickable(true).instance(N)` within the line subtree, or via bounds):
+**Cart line structure (verified from `test-results/cart_dump.xml`, 2026-05-18):**
+- Each line = ImageView with `description="<Product>\n$<line total>\n<qty>"`. Qty 1 ⇒ qty 1; qty N ⇒ price ×N and qty N in the desc.
+- Per line, 3 Button children in DOM order [Minus, Plus, Delete]:
   - **Minus** — `enabled=false, clickable=false` at qty=1 (greyed); becomes NAF `clickable=true` at qty≥2.
   - **Plus** — NAF Button, always `clickable=true`.
   - **Delete** — NAF Button, always `clickable=true`.
-- **Selector ambiguity:** color variants of the same product produce identical content-desc lines. Disambiguate by positional instance within the scrollable, not by content-desc.
+- **Selector ambiguity:** color variants of the same product produce identical line content-desc (e.g. two "Casual Sundress\n$49.99\n1" lines from PD02). Buttons therefore can't be addressed via UiSelector `description(...).childSelector(...)` reliably. `CartPage._lineButtons(index)` resolves via WebDriverIO subtree query `lines[index].$$('android.widget.Button')` — DOM order is stable and works on phone portrait + tablet portrait without per-device coordinate offsets.
+
+**Cart-screen scroll:**
+- Cart body wraps in `android.widget.ScrollView` (`scrollable=true`) when content overflows viewport. Bottom bar (Total + Proceed to Checkout) sits OUTSIDE the scrollview — always visible.
+- Compose virtualises off-screen line items: on Pixel 8 portrait, only ~6 of 7 lines are in the a11y tree at scroll-top. `CartPage.collectAllLines()` walks the scrollview in viewport-fraction swipes + stitches snapshots into a single ordered list, so Σ(line.total) can be verified against the bottom-bar cart Total.
+- On Pixel Tablet portrait the cart fits in one viewport — no ScrollView in `scrollable(true)` state — and the walk gracefully no-ops.
 
 **Bottom bar:**
-- Label `description("Total:")`, value `description("$<sum>")` (sum of all line totals).
+- Label `description("Total:")`, value View with `description` starting `$` (sum of all line totals).
 - `description("Proceed to Checkout")` Button, clickable=true.
 
-| Test ID | Description | Strategy | Status |
-| :--- | :--- | :--- | :---: |
-| **TC-S01** | Open Cart (icon) → 4 line items visible with correct `name\n$total\nqty` content-desc; `Total:` value = Σ line totals; Proceed to Checkout enabled | Universal POM + Data Integrity | ⏳ |
-| **TC-S02** | On a qty=1 line, tap Plus up to qty=5 → line content-desc reflects new qty + scaled total per tap; cart Total updates per tap | UI Interaction (capped N=5) | ⏳ |
-| **TC-S03** | Tap Minus back down to qty=1 → totals reverse symmetrically; at qty=1 the Minus button is disabled (`enabled=false, clickable=false`) — assertion only, no further tap | UI Interaction + Disabled-state Assertion | ⏳ |
-| **TC-S04** | Tap Delete (3rd clickable instance per line) on a specific line → that line removed, cart Total decrements by the deleted line's total, remaining lines unchanged | UI Interaction | ⏳ |
-| **TC-S05** | Tap Delete on remaining lines until empty → empty-state message ("Your Cart is empty"), badge=0, Continue Shopping button visible | Negative / Empty State | ⏳ |
+| Test ID | Description | Strategy | Pixel 8 | Pixel Tablet |
+| :--- | :--- | :--- | :---: | :---: |
+| **TC-S01** | Land on Cart via grid icon → `collectAllLines()` walks ScrollView; assert 7 lines well-formed (name truthy, total>0, qty≥1); `Total:` value = Σ line totals (in-code reduce); Proceed to Checkout clickable | Scroll-Walk + Data Integrity | ✅ | ✅ |
+| **TC-S02** | On line 0 (a PD02 variant, qty=1) tap Plus until qty=5 → per-tap: line content-desc reflects new qty + `total = unitPrice × qty`; `collectAllLines()` re-walked → Σ line totals == bottom-bar cart Total | UI Interaction + In-Code Sum Verify (capped N=5) | ✅ | ✅ |
+| **TC-S03** | Tap Minus back down to qty=1 → same Σ-totals verification per tap; at qty=1 the Minus button's `clickable=false` AND `enabled=false` (UI-lock contract) | UI Interaction + Disabled-state Assertion | ✅ | ✅ |
+| **TC-S04** | Tap Delete on line 0 → line count -1; cart Total = before − deletedLine.total; afterSum (re-walked) == cart Total | UI Interaction + Math Verify | ✅ | ✅ |
+| **TC-S05** | Loop tapDelete(0) until line count = 0 → "Your cart is empty" + Continue Shopping visible | Negative / Empty State | ✅ | ✅ |
 
 ## 15. Checkout (planned)
 
