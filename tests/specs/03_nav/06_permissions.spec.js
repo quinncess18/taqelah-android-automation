@@ -130,83 +130,89 @@ test.describe('Navigation - Permissions Suite (TC-P01-P04)', () => {
   });
 
   test('TC-P03: should grant Camera (While using), Location (Only this time), Storage and verify persistence', async ({ driver }) => {
-    // Reset permissions for fresh state
+    console.log('[P03] start — resetting permissions');
     await permsPage.resetPermissions();
-    // Wait for Home to fully render before navigating (CI emulator is slower)
+    console.log('[P03] reset done, waiting for Home');
     await landingPage.waitForDisplayed(landingPage.shopAllBtn, 15000);
-    // Extra settle pause: on CI, Flutter's AppBar (with hamburger menu) may not
-    // be in the accessibility tree yet even after content renders. Give it time
-    // so navMenu.open() doesn't hit "element wasn't found".
     await driver.pause(2000);
 
-    // Navigate back to Permissions page (reset re-launches the app to Home)
+    console.log('[P03] opening drawer → Permissions');
     await navMenu.open();
     await navMenu.navigateTo(navMenu.navPermissions);
     await permsPage.waitForPageLoad();
+    console.log('[P03] on Permissions page');
 
-    // Verify clean state
-    expect(await permsPage.getPermissionStatus(permsPage.cameraEntry)).toBe('Not checked');
-    expect(await permsPage.getPermissionStatus(permsPage.locationEntry)).toBe('Not checked');
-    expect(await permsPage.getPermissionStatus(permsPage.storageEntry)).toBe('Not checked');
+    const cameraInit = await permsPage.getPermissionStatus(permsPage.cameraEntry);
+    const locationInit = await permsPage.getPermissionStatus(permsPage.locationEntry);
+    const storageInit = await permsPage.getPermissionStatus(permsPage.storageEntry);
+    console.log(`[P03] initial statuses: camera="${cameraInit}" location="${locationInit}" storage="${storageInit}"`);
+    expect(cameraInit).toBe('Not checked');
+    expect(locationInit).toBe('Not checked');
+    expect(storageInit).toBe('Not checked');
 
-    // ── Camera: Video → "While using" → Audio → "While using" → "Granted" ──
+    console.log('[P03] camera: tap Request');
     await permsPage.tapRequest(permsPage.cameraRequestBtn);
+    console.log('[P03] camera: accept Video (While using)');
     await permsPage.acceptWhileUsing();
+    console.log('[P03] camera: accept Audio (While using)');
     await permsPage.acceptWhileUsing();
-    expect(await permsPage.getPermissionStatus(permsPage.cameraEntry)).toBe('Granted');
+    const cameraAfter = await permsPage.getPermissionStatus(permsPage.cameraEntry);
+    console.log(`[P03] camera status after grant: "${cameraAfter}"`);
+    expect(cameraAfter).toBe('Granted');
 
-    // Extra settle pause: CI emulators may still have the Audio dialog's dimming overlay
-    // active when Location's Request button is tapped, swallowing the touch and preventing
-    // the native Location dialog from appearing at all.
     await driver.pause(3000);
 
-    // ── Location: Request → "Only this time" ──
-    // Poll through transient "Getting location..." state (safer on slower emulators)
+    console.log('[P03] location: tap Request');
     await permsPage.tapRequest(permsPage.locationRequestBtn);
+    console.log('[P03] location: accept (Only this time)');
     await permsPage.acceptOneTime();
+    console.log('[P03] location: waiting for Granted');
     await permsPage.waitForPermissionStatus(permsPage.locationEntry, 'Granted');
+    console.log('[P03] location granted');
 
-    // ── Storage: Request → auto-grants ──
+    console.log('[P03] storage: tap Request (auto-grants)');
     await permsPage.tapRequest(permsPage.storageRequestBtn);
-    expect(await permsPage.getPermissionStatus(permsPage.storageEntry)).toBe('Granted');
+    const storageAfter = await permsPage.getPermissionStatus(permsPage.storageEntry);
+    console.log(`[P03] storage status after request: "${storageAfter}"`);
+    expect(storageAfter).toBe('Granted');
 
-    // Scroll down to reveal Storage Info section below the fold
+    console.log('[P03] scrolling to Storage Info');
     await permsPage.scrollDownToStorageInfo();
-
-    // Storage Info fields should contain non-empty values (device-agnostic)
     expect(await permsPage.isVisible(permsPage.storageInfoEntry)).toBe(true);
     expect(await permsPage.getStorageField('Total')).toBeTruthy();
     expect(await permsPage.getStorageField('Used')).toBeTruthy();
     expect(await permsPage.getStorageField('Available')).toBeTruthy();
+    console.log('[P03] storage info fields verified');
 
-    // ── Persistence: navigate away and back ──
+    console.log('[P03] persistence: back → Home → drawer → Permissions');
     await driver.back();
     await driver.pause(1000);
     expect(await landingPage.isVisible(landingPage.shopAllBtn)).toBe(true);
-
     await navMenu.open();
     await navMenu.navigateTo(navMenu.navPermissions);
     await permsPage.waitForPageLoad();
+    console.log('[P03] back on Permissions page');
 
-    // Tap Request buttons to confirm no OS dialog appears (state unchanged)
+    console.log('[P03] persistence: re-tap Request (no dialog expected)');
     await permsPage.tapRequest(permsPage.cameraRequestBtn);
     await permsPage.tapRequest(permsPage.locationRequestBtn);
     await permsPage.tapRequest(permsPage.storageRequestBtn);
 
-    // Verify Camera and Location statuses BEFORE scrolling (scrolling can push
-    // elements off the accessibility tree on API 29 / CI emulators)
-    expect(await permsPage.getPermissionStatus(permsPage.cameraEntry)).toBe('Granted');
-    expect(await permsPage.getPermissionStatus(permsPage.locationEntry)).toBe('Granted');
+    const cameraPersist = await permsPage.getPermissionStatus(permsPage.cameraEntry);
+    const locationPersist = await permsPage.getPermissionStatus(permsPage.locationEntry);
+    console.log(`[P03] persisted statuses (pre-scroll): camera="${cameraPersist}" location="${locationPersist}"`);
+    expect(cameraPersist).toBe('Granted');
+    expect(locationPersist).toBe('Granted');
 
-    // Scroll down to verify Storage Info persistence
     await permsPage.scrollDownToStorageInfo();
-
-    // Verify Storage status and Storage Info fields
-    expect(await permsPage.getPermissionStatus(permsPage.storageEntry)).toBe('Granted');
+    const storagePersist = await permsPage.getPermissionStatus(permsPage.storageEntry);
+    console.log(`[P03] persisted storage status: "${storagePersist}"`);
+    expect(storagePersist).toBe('Granted');
     expect(await permsPage.isVisible(permsPage.storageInfoEntry)).toBe(true);
     expect(await permsPage.getStorageField('Total')).toBeTruthy();
     expect(await permsPage.getStorageField('Used')).toBeTruthy();
     expect(await permsPage.getStorageField('Available')).toBeTruthy();
+    console.log('[P03] done');
   });
 
   test('TC-P04: should deny Camera and Location twice, verify "Permanently Denied", auto-grant Storage, and verify persistence', async ({ driver }) => {

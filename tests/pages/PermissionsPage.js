@@ -150,10 +150,11 @@ class PermissionsPage extends BasePage {
   async acceptWhileUsing() {
     try {
       const btn = await this.driver.$(this.allowWhileUsingBtn);
-      // 5s primary — second back-to-back dialog (Camera Video → Audio) needs
+      // 10s primary — second back-to-back dialog (Camera Video → Audio) needs
       // time for dialog #1 dismiss animation + dialog #2 render on slower
-      // CI emulators (API 34 boots are noticeably slower than API 29).
-      await btn.waitForDisplayed({ timeout: 5000 });
+      // CI emulators. Bumped 5s → 10s on 2026-05-18 after run 26009721679
+      // hit the 5s ceiling on all 3 P03 attempts (cold-render spike).
+      await btn.waitForDisplayed({ timeout: 10000 });
       await btn.click();
     } catch {
       // Fallback: try the generic "Allow" button (API 29 and below)

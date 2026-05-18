@@ -59,7 +59,12 @@ class CatalogLandingPage extends BasePage {
   }
 
   async navigateToShopAll() {
-    const el = await this.driver.$(this.shopAllBtn);
+    // Defensive wait before click — on slow CI cold-renders the a11y tree
+    // can briefly drop Shop All between waitForPageLoad and this call
+    // (observed on run 26009721679 from Cart's buildCartAndEnter replay
+    // path: "Shop All not found"). Single-shot $().click() races; explicit
+    // waitForDisplayed gives the Flutter bridge time to settle.
+    const el = await this.waitForDisplayed(this.shopAllBtn, 15000);
     await el.click();
   }
 
