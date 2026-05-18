@@ -2,7 +2,7 @@
 
 Defines the test coverage and verification strategy for the Taqelah mobile application.
 
-**Current scope:** Android emulators — Pixel 8 (API 35, local) + Pixel Tablet (API 35, local) for full coverage; CI runs Pixel 6 profile at API 34 (Android 14, google_apis target). 76 TCs across 14 modules (Auth, Catalog, Nav Main, Gestures, WebView, Dialogs, Form, Permissions, Notifications, Tabs, Camera, Location, Dark Mode, Products+Search, Cart) verified on local; CI on API 34 with `retries: 2` to absorb emulator flake.
+**Current scope:** Android emulators — Pixel 8 (API 35, local) + Pixel Tablet (API 35, local) for full coverage; CI runs Pixel 6 profile at API 34 (Android 14, google_apis target). 80 TCs across 15 modules (Auth, Catalog, Nav Main, Gestures, WebView, Dialogs, Form, Permissions, Notifications, Tabs, Camera, Location, Dark Mode, Products+Search, Cart, Checkout) verified on local Pixel 8; CI on API 34 with `retries: 2` to absorb emulator flake.
 
 **Roadmap:** iOS platform support (iPhone 15 Pro, iPad) post-June workshop.
 
@@ -29,6 +29,7 @@ Each module's supported Android API range is an explicit contract. A new module 
 | **Dark Mode (03/11)** | 29 | 35 | No version-gated widgets. Cross-cutting smoke that visits every previously-tested page in dark mode and validates AppBar background via 3-spot pixel sampling. Location step is skipped on Pixel Tablet only (inherits 10/Location's GPS limitation). |
 | **Products + Search (04/01)** | 29 | 35 | No version-gated widgets. Pixel Tablet runs in **forced portrait** — orientation lock applied AFTER login via `mobile: shell` + `settings put system user_rotation 1`. Without rotation, Pixel Tablet's natural landscape (2560×1600) makes product cards taller than the viewport and NAF add-to-cart child Buttons don't enter the a11y tree. W3C `setOrientation` is a no-op on UIA2. No orientation revert in `afterAll` — Cart (04/02) chains off this state. |
 | **Cart (04/02)** | 29 | 35 | No version-gated widgets. Chains off Products' end-state (7-line cart, portrait lock inherited). `collectAllLines()` walks the cart ScrollView on phone (Compose virtualises rows past viewport); no-ops on tablet portrait where all 7 fit. Per-line NAF Buttons (Minus/Plus/Delete) resolved via direct `.click()` on line ImageView's Button children in DOM order — sidesteps the duplicate content-desc issue with PD02 color variants and the per-device coordinate-offset problem. Cart's `afterAll` reverts tablet to landscape at end of chain. |
+| **Checkout (04/03)** | 29 | 35 | No version-gated widgets. Chains off Cart's empty-state via Continue Shopping → Boho grid → `clearSearch()`. Adds 2–3 distinct random items via the Detail-page add path (the grid card direct-add icon collided with the Material snackbar's VIEW CART overlay on bottom-of-grid cards — reliable across runs only via Detail). Shipping fields are 7 NAF EditTexts at positional `instance(0–6)` wrapped in `UiScrollable.scrollIntoView`. Review Order line items are `View + descriptionContains("Qty:")` (different class than Cart's `ImageView` lines). Pixel Tablet verification pending. |
 
 **Operating contract:**
 - Adding a new module → declare its min API + reason. If hardware-feature-gated, document the workaround.
@@ -307,7 +308,7 @@ Each module's supported Android API range is an explicit contract. A new module 
 | **TC-S04** | Delete line 0 → count -1; cart Total = before − deletedLine.total | UI Interaction + Math Verify | ✅ | ✅ |
 | **TC-S05** | Loop delete until empty → "Your cart is empty" + Continue Shopping | Negative / Empty State | ✅ | ✅ |
 
-## 15. Checkout (planned)
+## 15. Checkout
 
 **Spec:** `tests/specs/04_products/03_checkout.spec.js`
 **Flow:** Cart → Shipping Info ("To Payment") → Review Order ("Place Order") → Thank You ("Continue Shopping"). No Payment step. Test data: `tests/data/checkout-scenarios.json`.
@@ -318,16 +319,16 @@ Each module's supported Android API range is an explicit contract. A new module 
 - **Continue Shopping** (TC-K03) — returns to Catalog Landing with cart badge=0.
 - **State preservation** (TC-K04) — Back from Review re-renders Shipping Info with all 7 entered values preserved.
 
-| Test ID | Description | Strategy | Status |
-| :--- | :--- | :--- | :---: |
-| **TC-K01** | Cart → Checkout → empty To Payment → 6 required-field errors; stay on Shipping | Negative | ⏳ |
-| **TC-K02** | Fill `valid[0]` → To Payment → Review (5-line Shipping Address card, totals match Cart) → Place Order → Thank You | E2E Flow | ⏳ |
-| **TC-K03** | Continue Shopping → Catalog Landing + cart badge=0 | E2E Flow | ⏳ |
-| **TC-K04** | Fill 7 fields → To Payment → Back → Shipping Info preserves all 7 values verbatim | State Preservation | ⏳ |
+| Test ID | Description | Strategy | Pixel 8 | Pixel Tablet |
+| :--- | :--- | :--- | :---: | :---: |
+| **TC-K01** | Cart → Checkout → empty To Payment → 6 required-field errors; stay on Shipping | Negative | ✅ | ⏳ |
+| **TC-K02** | Fill `valid[0]` → To Payment → Review (5-line Shipping Address card, totals match Cart) → Place Order → Thank You | E2E Flow | ✅ | ⏳ |
+| **TC-K03** | Continue Shopping → Catalog Landing + cart badge=0 | E2E Flow | ✅ | ⏳ |
+| **TC-K04** | Fill 7 fields → To Payment → Back → Shipping Info preserves all 7 values verbatim | State Preservation | ✅ | ⏳ |
 
 ## 16. End-to-End Regression (planned)
 
-**Spec:** `tests/specs/05_regression/01_e2e.spec.js`
+**Spec:** `tests/specs/05_regression/01_e2e.spec.js`. Runs **after** all module specs (01–04) as a final cross-feature integration check — not a smoke test. A fast `00_smoke/` (login + catalog + 1-item add, sub-90s) is planned separately to run first; this regression spec is a deep multi-module E2E that fails meaningfully only once every unit spec has passed.
 
 **Scope summary:**
 - **Full serial journey** (TC-E01) — fresh `pm clear` → login → catalog → product → add → cart → checkout → place order → thank you → continue shopping → assert badge=0.

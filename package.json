@@ -22,6 +22,7 @@
     "test:darkmode": "npx playwright test tests/specs/03_nav/11_dark_mode.spec.js",
     "test:products": "npx playwright test tests/specs/04_products/01_product_detail_add.spec.js",
     "test:cart": "npx playwright test tests/specs/04_products/02_cart.spec.js",
+    "test:checkout": "npx playwright test tests/specs/04_products/03_checkout.spec.js",
     "appium:start": "npx appium --allow-insecure adb_shell"
   },
   "dependencies": {

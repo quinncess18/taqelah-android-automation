@@ -1,0 +1,338 @@
+// @ts-check
+const { test, expect } = require('../../../fixtures/appFixture');
+const { LoginPage } = require('../../pages/LoginPage');
+const { CatalogLandingPage } = require('../../pages/CatalogLandingPage');
+const { ProductGridPage } = require('../../pages/ProductGridPage');
+const { ProductDetailPage } = require('../../pages/ProductDetailPage');
+const { CartPage } = require('../../pages/CartPage');
+const { NavMenuPage } = require('../../pages/NavMenuPage');
+const { ShippingInfoPage } = require('../../pages/ShippingInfoPage');
+const { ReviewOrderPage } = require('../../pages/ReviewOrderPage');
+const { ThankYouPage } = require('../../pages/ThankYouPage');
+const checkoutData = require('../../data/checkout-scenarios.json');
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §15 Checkout — chains off §14's empty-cart end-state.
+//
+// Entry (beforeAll):
+//   1. Empty cart screen → tap "Continue Shopping" → lands on the Boho grid
+//      with the "shorts" search still active (SR02 leftover).
+//   2. Clear the search in place (`gridPage.clearSearch()`) — items reappear.
+//      Boho is the only category §12+§13 didn't add items from, so this
+//      naturally covers it.
+//   3. Add 2–3 random DISTINCT items via direct-add card icons. Each add
+//      is verified by waiting for the cart badge to increment (eliminates
+//      the snackbar-race that swallowed the second add in earlier runs).
+//   4. Open Cart → confirm line count matches what we added + Σ math.
+//   5. Ready for K01.
+//
+// TC-K01 (negative — empty submit):
+//   Tap "Proceed to Checkout" on the cart → Shipping Info renders →
+//   tap "To Payment" with all fields empty → assert exactly 6 required-field
+//   errors (Address 2 is optional); still on Shipping.
+//
+// TC-K02 (happy path, depends on K01 leaving Shipping Info on-screen):
+//   Fill all 7 Shipping fields with `valid[0]` fixture (Jane Doe, Unit
+//   04-12) → To Payment → Review Order: assert 5-line Shipping Address
+//   card (Address 2 surfaces as its own line), Order Summary line items
+//   match Cart by name/qty/total, Review Total == Cart Total → Place
+//   Order → Thank You renders with title + body + Continue Shopping.
+//
+// TC-K03 (depends on K02 leaving Thank You on-screen):
+//   Tap Continue Shopping → Catalog Landing → cart badge node absent
+//   (Place Order wiped the cart).
+//
+// TC-K04 (state preservation; depends on K03 leaving Landing on-screen):
+//   Has its own pre-step — random non-Boho category → Detail-path add 2
+//   items → Cart → Proceed to Checkout → Shipping. Then: fill all 7
+//   fields with `valid[0]` → To Payment → Review renders → tap Back →
+//   Shipping re-appears with all 7 field values preserved verbatim
+//   (including the optional Address 2).
+// ─────────────────────────────────────────────────────────────────────────────
+
+test.describe('Products Module — Checkout (§15)', () => {
+  /** @type {LoginPage} */ let loginPage;
+  /** @type {CatalogLandingPage} */ let landingPage;
+  /** @type {ProductGridPage} */ let gridPage;
+  /** @type {ProductDetailPage} */ let detailPage;
+  /** @type {CartPage} */ let cartPage;
+  /** @type {NavMenuPage} */ let navMenu;
+  /** @type {ShippingInfoPage} */ let shippingPage;
+  /** @type {ReviewOrderPage} */ let reviewPage;
+  /** @type {ThankYouPage} */ let thankYouPage;
+
+  // Cart entry state captured for TC-K01's pre-conditions
+  /** @type {number} */ let entryLineCount;
+  /** @type {number} */ let entryCartTotal;
+  /** @type {{ name: string, total: number, qty: number, raw: string }[]} */ let entryLines;
+
+  test.beforeAll(async ({ driver }) => {
+    try { await driver.updateSettings({ waitForIdleTimeout: 0 }); } catch {}
+
+    loginPage = new LoginPage(driver);
+    landingPage = new CatalogLandingPage(driver);
+    gridPage = new ProductGridPage(driver);
+    detailPage = new ProductDetailPage(driver);
+    cartPage = new CartPage(driver);
+    navMenu = new NavMenuPage(driver);
+    shippingPage = new ShippingInfoPage(driver);
+    reviewPage = new ReviewOrderPage(driver);
+    thankYouPage = new ThankYouPage(driver);
+
+    // Defensive tablet portrait re-lock (Cart's afterAll reverts to landscape).
+    const { width } = await driver.getWindowRect();
+    if (width > 1200) {
+      try {
+        await driver.execute('mobile: shell', { command: 'settings', args: ['put', 'system', 'accelerometer_rotation', '0'] });
+        await driver.execute('mobile: shell', { command: 'settings', args: ['put', 'system', 'user_rotation', '1'] });
+        await driver.pause(2500);
+      } catch (e) {
+        console.log(`[beforeAll] portrait lock failed: ${e?.message || e}`);
+      }
+    }
+
+    // Probe state. The expected chained-from-§14 entry is the empty cart
+    // screen with Continue Shopping visible.
+    const onEmptyCart = await cartPage.isVisible(cartPage.continueShoppingBtn);
+    if (onEmptyCart) {
+      const continueBtn = await driver.$(cartPage.continueShoppingBtn);
+      await continueBtn.click();
+      await driver.pause(1500);
+    }
+
+    // After Continue Shopping we're back on the Boho grid with "shorts"
+    // still in the search bar (SR02 leftover). Clear the search in place —
+    // items reappear, no navigation needed.
+    await gridPage.waitForPageLoad();
+    console.log(`[checkout/beforeAll] adding from "Boho" (clearing prior search)`);
+    await gridPage.clearSearch();
+
+    // Add 2 or 3 DISTINCT random items via the Detail-page add path
+    // (PD04 pattern). The grid-card direct-add icon was vulnerable to
+    // Material snackbar overlay collisions on bottom-of-grid cards (e.g.
+    // "Emerald Wrap Dress" consistently failed two runs in a row because
+    // its add-button sat where the snackbar's VIEW CART action covered it).
+    // Detail-page add has no overlay hazard and PD04 proves the pattern.
+    const itemCount = 2 + Math.floor(Math.random() * 2); // 2 or 3
+    const pickedNames = [];
+    const seen = new Set();
+    for (let i = 0; i < itemCount; i++) {
+      let pick;
+      let attempts = 0;
+      do {
+        pick = await gridPage.pickRandomProduct();
+        attempts++;
+      } while (seen.has(pick.name) && attempts < 5);
+      seen.add(pick.name);
+
+      const expectedBadge = i + 1;
+      await pick.el.click();
+      await detailPage.waitForPageLoad();
+      await detailPage.addToCart();
+      await detailPage.waitForSnackbarDismissed();
+      await driver.back();
+      await gridPage.waitForPageLoad();
+      await driver.waitUntil(async () => {
+        return (await gridPage.getCartBadgeCount()) === expectedBadge;
+      }, { timeout: 6000, interval: 300, timeoutMsg: `add of "${pick.name}" did not increment cart badge to ${expectedBadge}` });
+      pickedNames.push(pick.name);
+    }
+    console.log(`[checkout/beforeAll] added ${itemCount}: ${pickedNames.join(', ')}`);
+
+    // Open Cart and snapshot entry state.
+    const cartIcon = await driver.$(gridPage.cartBtn);
+    await cartIcon.click();
+    await cartPage.waitForPageLoad();
+
+    entryLines = await cartPage.collectAllLines();
+    entryLineCount = entryLines.length;
+    entryCartTotal = await cartPage.getCartTotal();
+
+    // Pre-condition assertions — fail fast if the cart isn't in the shape
+    // K01 expects (≥ 1 line, math consistent).
+    if (entryLineCount < 1) {
+      throw new Error(`[checkout/beforeAll] expected ≥1 cart line, got ${entryLineCount}`);
+    }
+    const sumLineTotals = entryLines.reduce((s, l) => s + l.total, 0);
+    if (Math.abs(entryCartTotal - sumLineTotals) > 0.01) {
+      throw new Error(`[checkout/beforeAll] cart total ${entryCartTotal} ≠ Σ line totals ${sumLineTotals}`);
+    }
+    console.log(`[checkout/beforeAll] cart ready: ${entryLineCount} lines, total $${entryCartTotal.toFixed(2)}`);
+  });
+
+  test('TC-K01: empty submit on Shipping Info shows 6 required-field errors, stays on Shipping', async ({ driver }) => {
+    // Sanity: we should be on the cart screen with ≥1 line.
+    expect(await cartPage.isVisible(cartPage.cartTitle)).toBe(true);
+    expect(entryLineCount).toBeGreaterThanOrEqual(1);
+
+    // Cart → Shipping Info
+    await cartPage.tapProceedToCheckout();
+    await shippingPage.waitForPageLoad();
+
+    // 7 NAF EditText fields visible (UiScrollable resolves regardless of
+    // current scroll position).
+    expect(await shippingPage.isVisible(shippingPage.fullNameInput)).toBe(true);
+    expect(await shippingPage.isVisible(shippingPage.countryInput)).toBe(true);
+    expect(await shippingPage.isVisible(shippingPage.toPaymentBtn)).toBe(true);
+
+    // Empty submit → 6 "This field is required" errors (Address 2 optional).
+    await shippingPage.tapToPayment();
+    await driver.pause(1000);
+
+    const errorCount = await shippingPage.getRequiredFieldErrorCount();
+    expect(errorCount).toBe(6);
+
+    // Still on Shipping Info (didn't advance to Review Order).
+    expect(await shippingPage.isVisible(shippingPage.title)).toBe(true);
+  });
+
+  test('TC-K02: fill Shipping → Review matches Cart → Place Order → Thank You', async ({ driver }) => {
+    // Sanity: K01 left us on Shipping Info with the empty form + 6 errors.
+    expect(await shippingPage.isVisible(shippingPage.title)).toBe(true);
+
+    // Fill all 7 fields with the standard happy-path fixture (Jane Doe,
+    // Unit 04-12 → exercises the Address-2-renders-its-own-line surface).
+    const customer = checkoutData.valid[0].customer;
+    await shippingPage.fillForm(customer);
+
+    // → Review Order
+    await shippingPage.tapToPayment();
+    await reviewPage.waitForPageLoad();
+
+    // Shipping Address card: with Address 2 populated, the desc joins
+    // 5 lines (without Address 2 it would be 4).
+    const addressLines = await reviewPage.getShippingAddressLines();
+    expect(addressLines).toHaveLength(5);
+    expect(addressLines).toContain(customer.address2);
+
+    // Order Summary line items must match Cart by name + qty + total.
+    const reviewLines = await reviewPage.getOrderSummaryLines();
+    expect(reviewLines.length).toBe(entryLineCount);
+
+    // Match per-line — both lists were captured in DOM/scroll order;
+    // cross-reference by name for tolerance to ordering.
+    const reviewByName = new Map(reviewLines.map((l) => [l.name, l]));
+    for (const cartLine of entryLines) {
+      const rev = reviewByName.get(cartLine.name);
+      expect(rev, `Review missing line "${cartLine.name}"`).toBeTruthy();
+      expect(rev.qty).toBe(cartLine.qty);
+      expect(rev.total).toBeCloseTo(cartLine.total, 2);
+    }
+
+    // Bottom-bar Total = Cart Total = Σ review-line totals.
+    const reviewTotal = await reviewPage.getTotal();
+    expect(reviewTotal).toBeCloseTo(entryCartTotal, 2);
+    const reviewSum = reviewLines.reduce((s, l) => s + l.total, 0);
+    expect(reviewTotal).toBeCloseTo(reviewSum, 2);
+
+    // Place Order → Thank You
+    await reviewPage.tapPlaceOrder();
+    await thankYouPage.waitForPageLoad();
+    expect(await thankYouPage.isVisible(thankYouPage.title)).toBe(true);
+    expect(await thankYouPage.isVisible(thankYouPage.body)).toBe(true);
+    expect(await thankYouPage.isVisible(thankYouPage.continueShoppingBtn)).toBe(true);
+  });
+
+  test('TC-K03: Continue Shopping from Thank You returns to Catalog Landing with badge=0', async () => {
+    // K02 left us on Thank You.
+    expect(await thankYouPage.isVisible(thankYouPage.title)).toBe(true);
+
+    await thankYouPage.tapContinueShopping();
+    await landingPage.waitForPageLoad();
+
+    // Cart was wiped by Place Order — badge node should be absent (the
+    // cart badge selector matches the numeric overlay that only renders
+    // when items > 0).
+    const badgeVisible = await gridPage.isVisible(gridPage.cartBadge);
+    expect(badgeVisible).toBe(false);
+  });
+
+  test('TC-K04: fill 7 Shipping fields → To Payment (Review) → Back → all 7 values preserved', async ({ driver }) => {
+    // K03 left us on Catalog Landing with cart empty. K04 needs its own
+    // cart to reach Shipping → Review. Pick a random non-Boho category
+    // (Boho was K01/K02's; rule: cover variety across §15's TCs) and add
+    // 2 distinct items via the Detail-page add path (same as beforeAll's
+    // reliable pattern).
+    expect(await landingPage.isVisible(landingPage.shopAllBtn)).toBe(true);
+    const k04Categories = ['Casual', 'Evening', 'Party'];
+    const chosen = k04Categories[Math.floor(Math.random() * k04Categories.length)];
+    console.log(`[K04 pre-step] adding from "${chosen}"`);
+
+    await landingPage.selectCategory(chosen);
+    await gridPage.waitForPageLoad();
+
+    const k04Seen = new Set();
+    for (let i = 0; i < 2; i++) {
+      let pick;
+      let attempts = 0;
+      do {
+        pick = await gridPage.pickRandomProduct();
+        attempts++;
+      } while (k04Seen.has(pick.name) && attempts < 5);
+      k04Seen.add(pick.name);
+
+      const expectedBadge = i + 1;
+      await pick.el.click();
+      await detailPage.waitForPageLoad();
+      await detailPage.addToCart();
+      await detailPage.waitForSnackbarDismissed();
+      await driver.back();
+      await gridPage.waitForPageLoad();
+      await driver.waitUntil(async () => {
+        return (await gridPage.getCartBadgeCount()) === expectedBadge;
+      }, { timeout: 6000, interval: 300, timeoutMsg: `K04 add of "${pick.name}" did not increment cart badge to ${expectedBadge}` });
+    }
+
+    // Cart → Shipping
+    const cartIcon = await driver.$(gridPage.cartBtn);
+    await cartIcon.click();
+    await cartPage.waitForPageLoad();
+    await cartPage.tapProceedToCheckout();
+    await shippingPage.waitForPageLoad();
+
+    // Fill all 7 fields with valid[0] fixture.
+    const customer = checkoutData.valid[0].customer;
+    await shippingPage.fillForm(customer);
+
+    // → Review (then immediately Back)
+    await shippingPage.tapToPayment();
+    await reviewPage.waitForPageLoad();
+
+    await driver.back();
+    await shippingPage.waitForPageLoad();
+
+    // All 7 entered values must round-trip verbatim — including the
+    // optional Address 2.
+    const roundTrip = await shippingPage.readForm();
+    expect(roundTrip.fullName).toBe(customer.fullName);
+    expect(roundTrip.address1).toBe(customer.address1);
+    expect(roundTrip.address2).toBe(customer.address2);
+    expect(roundTrip.city).toBe(customer.city);
+    expect(roundTrip.state).toBe(customer.state);
+    expect(roundTrip.zip).toBe(customer.zip);
+    expect(roundTrip.country).toBe(customer.country);
+  });
+
+  // End-of-chain hygiene: §15 is the last spec in 04_products/. Navigate
+  // back to a known anchor (Catalog Landing) so anything that follows
+  // doesn't inherit Shipping Info junk state, and revert tablet to its
+  // natural landscape. §16's pm clear would supersede this anyway, but
+  // this keeps any other downstream spec safe.
+  test.afterAll(async ({ driver }) => {
+    for (let i = 0; i < 5; i++) {
+      if (await landingPage.isVisible(landingPage.shopAllBtn)) break;
+      await driver.back();
+      await driver.pause(500);
+    }
+    const { width } = await driver.getWindowRect();
+    if (width > 1200) {
+      try {
+        await driver.execute('mobile: shell', { command: 'settings', args: ['put', 'system', 'user_rotation', '0'] });
+        await driver.execute('mobile: shell', { command: 'settings', args: ['put', 'system', 'accelerometer_rotation', '1'] });
+        await driver.pause(2000);
+      } catch (e) {
+        console.log(`[checkout/afterAll] orientation revert failed: ${e?.message || e}`);
+      }
+    }
+  });
+});

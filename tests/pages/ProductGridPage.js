@@ -115,6 +115,22 @@ class ProductGridPage extends BasePage {
     await this.driver.pause(this.settlePause);
   }
 
+  /**
+   * Clear the search bar in place — leaves the grid on its current
+   * category with all items visible again. Useful when chaining off a
+   * prior search state (e.g. §15 starts on Boho with the §13 "shorts"
+   * search still active).
+   */
+  async clearSearch() {
+    const input = await this.driver.$(this.searchInput);
+    await input.click();
+    await input.clearValue();
+    if (this.isAndroid) {
+      try { await this.driver.hideKeyboard(); } catch {}
+    }
+    await this.driver.pause(this.settlePause);
+  }
+
   async nudgeToRevealFirstItem() {
     const { width, height } = await this.driver.getWindowRect();
     const isTablet = width > 1200;
