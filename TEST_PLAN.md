@@ -2,7 +2,7 @@
 
 Defines the test coverage and verification strategy for the Taqelah mobile application.
 
-**Current scope:** Android emulators — Pixel 8 (API 35, local) + Pixel Tablet (API 35, local) for full coverage; CI runs Pixel 6 profile at API 34 (Android 14, google_apis target). 80 TCs across 15 modules (Auth, Catalog, Nav Main, Gestures, WebView, Dialogs, Form, Permissions, Notifications, Tabs, Camera, Location, Dark Mode, Products+Search, Cart, Checkout) verified on local Pixel 8; CI on API 34 with `retries: 2` to absorb emulator flake.
+**Current scope:** Android emulators — Pixel 8 (API 35, local) + Pixel Tablet (API 35, local) for full coverage; CI runs Pixel 6 profile at API 34 (Android 14, google_apis target). 82 TCs across 17 sections verified on local Pixel 8 + Tablet (§0 Smoke, §1–§14 unit modules, §15 Checkout, §16 Regression). §0 Smoke runs first as a foundation gate (~30s), §16 Regression runs last as a deep cross-module E2E. CI on API 34 with `retries: 2` to absorb emulator flake.
 
 **Roadmap:** iOS platform support (iPhone 15 Pro, iPad) post-June workshop.
 
@@ -35,6 +35,17 @@ Each module's supported Android API range is an explicit contract. A new module 
 - Adding a new module → declare its min API + reason. If hardware-feature-gated, document the workaround.
 - Bumping CI's API level → audit this matrix. Any module's lower bound that now exceeds CI's API is a hard skip; lower bound that now exceeds local is a regression risk.
 - Migration history: CI was on API 29 prior to 2026-05-11; Notifications could not run there. Migration to API 34 unblocked Notifications and required tuning in Permissions (back-to-back dialog wait), Gestures (canvas sampling), Form (toast timing) — see CLAUDE.md.
+
+## 0. Smoke (foundation check)
+
+**Spec:** `tests/specs/00_smoke/01_smoke.spec.js`. Runs **first** in the suite (~30–40s). If smoke fails, the app is fundamentally broken and there's no point running the 30+ minute unit suite below. Deliberately narrow scope: login + first-render + logout. No cart, no checkout — those are regression (§16).
+
+**Scope summary:**
+- **Foundation** (TC-SM01) — Login renders → credentials accepted → Catalog Landing renders → logout returns to Login (also leaves a clean state for 01_auth).
+
+| Test ID | Description | Strategy | Pixel 8 | Pixel Tablet |
+| :--- | :--- | :--- | :---: | :---: |
+| **TC-SM01** | App launches → Login renders → login → Catalog Landing renders → logout → Login renders again | Universal POM | ✅ | ✅ |
 
 ## 1. Authentication Module
 
@@ -326,13 +337,13 @@ Each module's supported Android API range is an explicit contract. A new module 
 | **TC-K03** | Continue Shopping → Catalog Landing + cart badge=0 | E2E Flow | ✅ | ⏳ |
 | **TC-K04** | Fill 7 fields → To Payment → Back → Shipping Info preserves all 7 values verbatim | State Preservation | ✅ | ⏳ |
 
-## 16. End-to-End Regression (planned)
+## 16. End-to-End Regression
 
-**Spec:** `tests/specs/05_regression/01_e2e.spec.js`. Runs **after** all module specs (01–04) as a final cross-feature integration check — not a smoke test. A fast `00_smoke/` (login + catalog + 1-item add, sub-90s) is planned separately to run first; this regression spec is a deep multi-module E2E that fails meaningfully only once every unit spec has passed.
+**Spec:** `tests/specs/05_regression/01_e2e.spec.js`. Runs **after** all module specs (01–04) as a final cross-feature integration check — not a smoke test. §0 Smoke runs first as a foundation gate; this regression spec is a deep multi-module E2E that fails meaningfully only once every unit spec has passed.
 
 **Scope summary:**
 - **Full serial journey** (TC-E01) — fresh `pm clear` → login → catalog → product → add → cart → checkout → place order → thank you → continue shopping → assert badge=0.
 
-| Test ID | Description | Strategy | Status |
-| :--- | :--- | :--- | :---: |
-| **TC-E01** | Full serial single-product journey, end-to-end from cold launch to badge=0 | Full E2E Serial | ⏳ |
+| Test ID | Description | Strategy | Pixel 8 | Pixel Tablet |
+| :--- | :--- | :--- | :---: | :---: |
+| **TC-E01** | Full serial single-product journey, end-to-end from cold launch to badge=0 | Full E2E Serial | ✅ | ✅ |

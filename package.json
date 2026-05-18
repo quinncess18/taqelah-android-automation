@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "npx playwright test",
+    "test:smoke": "npx playwright test tests/specs/00_smoke/01_smoke.spec.js",
     "test:login": "npx playwright test tests/specs/01_auth/01_functional.spec.js",
     "test:login:neg": "npx playwright test tests/specs/01_auth/02_negative.spec.js",
     "test:catalog": "npx playwright test tests/specs/02_catalog/01_landing.spec.js",
@@ -23,6 +24,7 @@
     "test:products": "npx playwright test tests/specs/04_products/01_product_detail_add.spec.js",
     "test:cart": "npx playwright test tests/specs/04_products/02_cart.spec.js",
     "test:checkout": "npx playwright test tests/specs/04_products/03_checkout.spec.js",
+    "test:regression": "npx playwright test tests/specs/05_regression/01_e2e.spec.js",
     "appium:start": "npx appium --allow-insecure adb_shell"
   },
   "dependencies": {

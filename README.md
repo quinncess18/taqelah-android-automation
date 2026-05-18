@@ -4,6 +4,7 @@ Production-grade automation framework for the **Taqelah Boutique** Flutter appli
 
 ## 🏁 Current Status: Modules 1–3 Verified on Pixel 8 + Pixel Tablet
 
+- **Smoke (§0, foundation):** ✅ TC-SM01 — Pixel 8 + Pixel Tablet. Runs first in the suite (~30s). Login renders → credentials accepted → Catalog Landing renders → logout returns to Login. Fail-fast catastrophic-break gate; passes leave a clean state for 01_auth.
 - **Module 1 (Authentication):** ✅ TC-L01–L06, TC-N01–N03 — Pixel 8 + Pixel Tablet.
 - **Module 2 (Catalog):** ✅ TC-C01–C11 — Pixel 8 + Pixel Tablet.
 - **Module 3 (Navigation & Gestures):** ✅ TC-M01–M08 — Pixel 8 + Pixel Tablet.
@@ -20,7 +21,9 @@ Production-grade automation framework for the **Taqelah Boutique** Flutter appli
 - **Cart (§14) — Add/Update/Delete + Empty State:** ✅ TC-S01–S05 — Pixel 8 + Pixel Tablet. Chains off Products' 7-line end-state by tapping the grid cart icon (no in-spec cascade rebuild). TC-S01 walks the cart ScrollView via `CartPage.collectAllLines()` (snapshot + stitch — handles Compose virtualisation on phone where lines 7+ are off-screen; tablet portrait fits all 7 in viewport and the walk no-ops). TC-S02/S03 drive Plus/Minus on line 0 (qty 1↔5 capped), asserting per-tap line total and Σ(line totals) == bottom-bar cart total via in-code computation. TC-S04 deletes one line and verifies count-1 + total decrement + Σ math. TC-S05 deletes until empty → "Your cart is empty" + Continue Shopping visible. Per-line buttons are NAF (no content-desc); resolved via direct `.click()` on the line ImageView's Button children in DOM order [Minus, Plus, Delete] — sidesteps the duplicate-content-desc problem with PD02 color variants. Cart's `afterAll` reverts the tablet to landscape at end of the 04_products chain.
 - **Checkout (§15) — Empty Submit + Happy Path + State Preservation:** ✅ TC-K01–K04 — Pixel 8. Chains off Cart's empty-state by tapping Continue Shopping → Boho grid; `gridPage.clearSearch()` drops the §13 "shorts" filter; `beforeAll` adds 2–3 distinct random Boho items via the Detail-page add path (PD04 pattern) since direct-add icons collided with the Material snackbar overlay on bottom-of-grid cards. TC-K01 taps To Payment with empty form → 6 required-field errors (Address 2 optional). TC-K02 fills `valid[0]` fixture (Jane Doe + Unit 04-12) → Review renders with 5-line Shipping Address card → Order Summary line items match Cart by name+qty+total → Review Total = Cart Total → Place Order → Thank You with title + body + Continue Shopping. TC-K03 taps Continue Shopping → Catalog Landing + cart badge node absent. TC-K04 has its own pre-step (random non-Boho category → Detail-path add 2 items → Cart → Shipping), fills `valid[0]` → To Payment → Review → Back → Shipping re-appears with all 7 field values preserved verbatim. New POMs: `ShippingInfoPage` (UiScrollable EditText fields, typeInto/fillForm/readForm), `ReviewOrderPage` (Shipping Address line parsing + Order Summary line items via `View + descriptionContains("Qty:")`), `ThankYouPage`.
 
-- **Upcoming:** §16 End-to-End regression (TC-E01) → §0 Smoke (login + catalog + 1-item add, sub-90s) for daily fast sanity. Real-device cloud for full Location coverage (mock-location injection or LambdaTest/Firebase Test Lab) — emulator GPS is unreliable across AVDs.
+- **Regression (§16, deep E2E):** ✅ TC-E01 — Pixel 8 + Pixel Tablet. Runs last in the suite. Fresh `pm clear` → login → catalog → random product → add to cart → cart math verify → checkout (Shipping → Review → Place Order) → Thank You → Continue Shopping → assert Catalog Landing + cart badge cleared. Single TC, exercises every module as a cross-feature integration check.
+
+- **Upcoming:** Real-device cloud for full Location coverage (mock-location injection or LambdaTest/Firebase Test Lab) — emulator GPS is unreliable across AVDs.
 
 
 ## 🚀 Key Features
@@ -77,6 +80,7 @@ npm run appium:start
 npm test
 
 # Module-specific runs
+npm run test:smoke         # 00_smoke/01_smoke.spec.js — foundation check (~30s)
 npm run test:login         # 01_auth/01_functional.spec.js
 npm run test:login:neg     # 01_auth/02_negative.spec.js
 npm run test:catalog       # 02_catalog/01_landing.spec.js
@@ -94,6 +98,8 @@ npm run test:location      # 03_nav/10_location.spec.js (Pixel 8 only — tablet
 npm run test:darkmode      # 03_nav/11_dark_mode.spec.js (cross-cutting smoke; Location step tablet-skipped)
 npm run test:products      # 04_products/01_product_detail_add.spec.js (tablet auto-rotates to portrait post-login)
 npm run test:cart          # 04_products/02_cart.spec.js — requires test:products to have just run in the same worker
+npm run test:checkout      # 04_products/03_checkout.spec.js — requires test:cart to have just run (chains from empty cart)
+npm run test:regression    # 05_regression/01_e2e.spec.js — full E2E with own pm clear; no chaining
 
 # Single spec against a specific device
 
