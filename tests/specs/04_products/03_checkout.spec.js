@@ -301,36 +301,27 @@ test.describe('Products Module — Checkout (§15)', () => {
     // K03 left us on Catalog Landing with cart empty. K04 needs its own
     // cart to reach Shipping → Review. Pick a random non-Boho category
     // (Boho was K01/K02's; rule: cover variety across §15's TCs) and add
-    // 2 distinct items via the Detail-page add path (same as beforeAll's
-    // reliable pattern).
-    expect(await landingPage.isVisible(landingPage.shopAllBtn)).toBe(true);
+    // 2 distinct items via the Detail-page add path. Wrapped in a
+    // try/retry: if the Detail render races on a CI cold-render spike
+    // (CI run 26033901841 — Detail page didn't bind in 60s on first
+    // K04 attempt), recover via pm clear + relogin + re-seed.
     const k04Categories = ['Casual', 'Evening', 'Party'];
     const chosen = k04Categories[Math.floor(Math.random() * k04Categories.length)];
-    console.log(`[K04 pre-step] adding from "${chosen}"`);
+    console.log(`[K04-seed] attempt 1: adding from "${chosen}"`);
 
-    await landingPage.selectCategory(chosen);
-    await gridPage.waitForPageLoad();
-
-    const k04Seen = new Set();
-    for (let i = 0; i < 2; i++) {
-      let pick;
-      let attempts = 0;
-      do {
-        pick = await gridPage.pickRandomProduct();
-        attempts++;
-      } while (k04Seen.has(pick.name) && attempts < 5);
-      k04Seen.add(pick.name);
-
-      const expectedBadge = i + 1;
-      await pick.el.click();
-      await detailPage.waitForPageLoad();
-      await detailPage.addToCart();
-      await detailPage.waitForSnackbarDismissed();
-      await driver.back();
+    try {
+      expect(await landingPage.isVisible(landingPage.shopAllBtn)).toBe(true);
+      await landingPage.selectCategory(chosen);
       await gridPage.waitForPageLoad();
-      await driver.waitUntil(async () => {
-        return (await gridPage.getCartBadgeCount()) === expectedBadge;
-      }, { timeout: 6000, interval: 300, timeoutMsg: `K04 add of "${pick.name}" did not increment cart badge to ${expectedBadge}` });
+      await seedCartFromCurrentGrid(driver, 2);
+    } catch (e) {
+      console.log(`[K04-seed] chained path failed: ${e?.message || e}`);
+      console.log('[K04-seed] recovering via pm clear + relogin');
+      await fullResetAndLogin(driver);
+      console.log(`[K04-seed] recovery: selecting "${chosen}" category`);
+      await landingPage.selectCategory(chosen);
+      await gridPage.waitForPageLoad();
+      await seedCartFromCurrentGrid(driver, 2);
     }
 
     // Cart → Shipping
