@@ -255,22 +255,50 @@ class CartPage extends BasePage {
     return { minus: buttons[0], plus: buttons[1], delete: buttons[2] };
   }
 
+  // Each tap waits for its effect to land in the a11y tree before returning,
+  // rather than relying on a fixed pause. The Compose bridge can stale-read
+  // for hundreds of ms under CI render-lag, which caused `collectAllLines()`
+  // to stitch a pre-tap + post-tap snapshot (exactly 2× sum mismatch in run
+  // 26010878162 TC-S02 attempt 1). Verifying the action eliminates the race.
+
   async tapPlus(index) {
+    const before = await this.getLine(index);
     const { plus } = await this._lineButtons(index);
     await plus.click();
-    await this.driver.pause(this.settlePause);
+    await this.driver.waitUntil(async () => {
+      const now = await this.getLine(index);
+      return now.qty > before.qty;
+    }, { timeout: 5000, interval: 200, timeoutMsg: `tapPlus(${index}): qty did not increment from ${before.qty} within 5s` });
   }
 
   async tapMinus(index) {
+    const before = await this.getLine(index);
     const { minus } = await this._lineButtons(index);
     await minus.click();
-    await this.driver.pause(this.settlePause);
+    await this.driver.waitUntil(async () => {
+      const now = await this.getLine(index);
+      return now.qty < before.qty;
+    }, { timeout: 5000, interval: 200, timeoutMsg: `tapMinus(${index}): qty did not decrement from ${before.qty} within 5s` });
   }
 
   async tapDelete(index) {
+    // Don't use getLineCount() as the signal — Compose virtualisation
+    // backfills the freed row with an off-screen item, so visible count
+    // can stay flat even though the cart genuinely shrunk. Use bottom-bar
+    // cart total: it always changes on a real delete and disappears into
+    // the empty-state message when the last line goes.
+    const beforeTotal = await this.getCartTotal();
     const { delete: del } = await this._lineButtons(index);
     await del.click();
-    await this.driver.pause(this.settlePause);
+    await this.driver.waitUntil(async () => {
+      if (await this.isVisible(this.emptyCartMsg)) return true;
+      try {
+        const nowTotal = await this.getCartTotal();
+        return Math.abs(nowTotal - beforeTotal) > 0.001;
+      } catch {
+        return false;
+      }
+    }, { timeout: 5000, interval: 200, timeoutMsg: `tapDelete(${index}): cart total did not change from ${beforeTotal} within 5s` });
   }
 
   /**

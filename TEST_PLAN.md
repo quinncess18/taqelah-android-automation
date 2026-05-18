@@ -36,6 +36,15 @@ Each module's supported Android API range is an explicit contract. A new module 
 - Migration history: CI was on API 29 prior to 2026-05-11; Notifications could not run there. Migration to API 34 unblocked Notifications and required tuning in Permissions (back-to-back dialog wait), Gestures (canvas sampling), Form (toast timing) — see CLAUDE.md.
 
 ## 1. Authentication Module
+
+**Spec:** `tests/specs/01_auth/01_functional.spec.js` + `02_negative.spec.js`
+
+**Scope summary:**
+- **Login render + interactions** (TC-L01/L02) — page elements visible, password visibility toggle stable.
+- **Credential state** (TC-L03/L04) — preserved on Home interruption, cleared on Back.
+- **Login + logout** (TC-L05/L06) — happy path login and session-aware logout.
+- **Validation negatives** (TC-N01/N02/N03) — empty fields, invalid username format, valid-username-bad-password.
+
 | Test ID | Description | Strategy | Pixel 8 | Pixel Tablet |
 | :--- | :--- | :--- | :---: | :---: |
 | **TC-L01** | should verify that the login page elements are visible | Universal POM | ✅ | ✅ |
@@ -49,6 +58,16 @@ Each module's supported Android API range is an explicit contract. A new module 
 | **TC-N03** | should show error for valid username with invalid password | Universal Negative | ✅ | ✅ |
 
 ## 2. Catalog Module
+
+**Specs:** `tests/specs/02_catalog/01_landing.spec.js` + `02_categories.spec.js`
+
+**Scope summary:**
+- **Homepage + grid render** (TC-C01/C03) — default state with scroll-to-bottom and reset-to-top.
+- **Cart empty states** (TC-C02/C06) — from Homepage and Grid entry points.
+- **Catalog data integrity** (TC-C04) — 32-item visual scan against `tests/data/products.js`.
+- **Sorting + routing** (TC-C05/C07) — all four sort modes, View All hyperlink.
+- **Category specs** (TC-C08–C11) — Casual/Evening/Party/Boho data + sort + cart integrity.
+
 | Test ID | Description | Strategy | Pixel 8 | Pixel Tablet |
 | :--- | :--- | :--- | :---: | :---: |
 | **TC-C01** | Homepage default state, scroll to last category, reset to top | Universal Safe-Zone | ✅ | ✅ |
@@ -63,11 +82,17 @@ Each module's supported Android API range is an explicit contract. A new module 
 | **TC-C10** | Party Dresses data + sort + cart integrity | Data-Driven | ✅ | ✅ |
 | **TC-C11** | Boho Dresses data + sort + cart integrity | Data-Driven | ✅ | ✅ |
 
-> **TC-C04 retry-resilience (2026-05-16):** `verifyFullCatalogIntegrity()` now `resetToTop(1)` at start so Playwright retries (which don't re-run `beforeAll`) start from top, not from a failed-attempt's mid-scroll position. `maxFlicks` bumped 35→50 and an extra `pause(settlePause*2)` between the power-tug and final scan absorbs CI render lag. Diagnostic dumps in `test-results/diagnostics/catalog-*.json` (CI-only) capture per-flick state for future debugging.
-
-> **TC-C04 scroll rework (2026-05-17):** After CI run 25980717553 showed C04 still failing 3/3 attempts (stuck at 28/32 with different items missing each run), the scan strategy was reworked. Fast full-viewport flicks were racing the Flutter a11y bridge — rows entered and exited viewport between scroll and scan. Switched to slower half-viewport scrolls (`swipeDepth` 0.55/0.75 → 0.275/0.375), 1500ms swipe duration, and 1.5x inter-scroll settle. Every row now stays in viewport across two scroll positions, giving each item two chances to enter the a11y tree. `maxFlicks` bumped 50→80 to compensate for smaller increments. Also: `02_catalog/01_landing.spec.js` got the retry-recoverable cascade pattern (per-TC action helpers + `beforeEach` replay from `pm clear` baseline) so failed retries no longer compound — fixes the prior "attempt 2 stuck at 6/32" cascade poisoning.
-
 ## 3. Navigation & Gestures
+
+**Specs:** `03_nav/01_main_nav.spec.js` (drawer routing), `02_gestures.spec.js` (swipe/drag/zoom), `03_webview.spec.js`.
+
+**Scope summary:**
+- **Drawer routing** (TC-M01/M02/M03) — Home, Cart, About entry points; About also exercises the in-page Dark Mode toggle with pixel sampling.
+- **Swipe + drag** (TC-M04/M05) — randomized card swipe-to-favorite/delete; long-press drag-and-drop reorder.
+- **Long-press popup** (TC-M06) — all 3 option interactions + toast.
+- **Zoom + pan** (TC-M07/M08) — double-tap zoom with pan-and-pixel-verify; pinch zoom with reset.
+- **WebView** (TC-W01–W03) — open Taqelah site, navigate to example.com via Go button, Back preserves app state.
+
 | Test ID | Description | Strategy | Pixel 8 | Pixel Tablet |
 | :--- | :--- | :--- | :---: | :---: |
 | **TC-M01** | Nav Menu default state + Home routing (above & below fold) | Functional E2E | ✅ | ✅ |
@@ -82,13 +107,17 @@ Each module's supported Android API range is an explicit contract. A new module 
 | **TC-W02** | Navigate to a new URL (example.com) using the Go button | URL Navigation | ✅ | ✅ |
 | **TC-W03** | WebView Back returns to the app with state preserved | State Preservation | ✅ | ✅ |
 
-> **Tablet-specific implementations** (phone path is byte-identical to before):
-> - `getPinchCenterBrightness` uses a dense-scan dark-pixel count across the full canvas on both phone and tablet (unified 2026-05-11; the previous 3×3 brightness average on phone was fragile to icon-interior transparency — the magnifying glass lens center matched the mint background, so 3×3 samples missed the zoom change despite the icon visibly enlarging).
-> - `verifyCanvasHasContent` uses a dense canvas-wide scan on tablet (after pan, the icon moves ~1748px — well outside a small center cross).
-> - `scrollToDragSection` adds a single page bump on tablet, anchored to the white-space gap below `swipeCard(5)`, so all 5 drag items enter the accessibility tree after re-navigation.
-> - `DialogsPage._dialGeometry` uses a side-by-side dialog layout on tablet (header on the LEFT, dial canvas on the RIGHT). Detection: if vertical room between header.bottom and switchBtn.top is < 200px, treat as tablet. Tablet dial center anchored on Cancel button's horizontal center.
-
 ## 4. Dialogs & Alerts
+
+**Spec:** `tests/specs/03_nav/04_dialogs.spec.js`
+
+**Scope summary:**
+- **Default render** (TC-D01) — all 7 trigger buttons visible.
+- **Alert / Bottom Sheet / Snackbar** (TC-D02/D03/D04) — open + dismiss + action handling.
+- **Date Picker** (TC-D05 + D05-NEG) — calendar mode, input mode, calendar toggle, invalid-format error.
+- **Time Picker** (TC-D06) — analog dial + text input modes.
+- **Simple + Full-Screen dialogs** (TC-D07/D08) — radio selection, back navigation with result card update.
+
 | Test ID | Description | Strategy | Pixel 8 | Pixel Tablet |
 | :--- | :--- | :--- | :---: | :---: |
 | **TC-D01** | Dialogs page default state with all 7 trigger buttons | Universal POM | ✅ | ✅ |
@@ -101,11 +130,17 @@ Each module's supported Android API range is an explicit contract. A new module 
 | **TC-D07** | Simple Dialog radio option selection for all colors | Universal POM | ✅ | ✅ |
 | **TC-D08** | Full-Screen Dialog display, back navigation, and result card update | Universal POM | ✅ | ✅ |
 
-> **Time Picker constraints:**
-> - Analog dial: `android.widget.SeekBar` wrappers are read-only. Only canvas-tap at clock-angle position works. See `DialogsPage._tapDialAt` and `_dialGeometry`.
-> - Text input: `EditText` fields drop keys via raw `setValue`. Use `DialogsPage.typeIntoEditText` (`click()` → `clearValue()` → `addValue()`).
-
 ## 5. Form Validation
+
+**Spec:** `tests/specs/03_nav/05_form.spec.js`
+
+**Scope summary:**
+- **Default state** (TC-F01) — all form fields render.
+- **Happy path** (TC-F02) — Bridal / Large / 2-of-5 rating / 10:30 PM submits successfully.
+- **Terms gating** (TC-F03) — Submit rejected until Terms is ON.
+- **Required-field + format negatives** (TC-F04/F05) — empty-form errors; bad email/phone/number/password formats.
+- **State reset** (TC-F06) — Back + re-entry clears form.
+
 | Test ID | Description | Strategy | Pixel 8 | Pixel Tablet |
 | :--- | :--- | :--- | :---: | :---: |
 | **TC-F01** | Form Validation page default state with all form fields | Universal POM | ✅ | ✅ |
@@ -115,15 +150,16 @@ Each module's supported Android API range is an explicit contract. A new module 
 | **TC-F05** | Show format-error messages for invalid email/phone/number/password | Negative | ✅ | ✅ |
 | **TC-F06** | Reset form state after Back-navigation and re-entry | Universal POM | ✅ | ✅ |
 
-> **Note:** Date and Time pickers in Form Validation reuse the same dialog popups from Dialogs & Alerts. See section 4 for Date/Time interaction details.
-> 
-> **Error messages:** Name="Name is required", Email="Email is required" / "Enter a valid email", Phone="Phone is required" / "At least 10 digits", Number="Required" / "Enter 1-100", Password="Password is required" / "Min 6 characters", Category="Please select a category", Terms="Please accept the terms" (toast). Success toast: "Form submitted successfully!"
->
-> **Field typing reliability (2026-05-12):** `typeIntoField` dismisses the soft keyboard after every field via `driver.hideKeyboard()`. While the keyboard is up, Flutter's semantic tree collapses unfocused EditTexts AND the scrollable container from the a11y bridge on slower CI emulators; the next field's `instance(N)` selector then resolves against a near-empty tree and can land on the wrong field. Input selectors are also wrapped in `UiScrollable.scrollIntoView` as defense-in-depth. See CLAUDE.md → "Form input fields — keyboard dismiss between fields" for the full diagnosis.
->
-> **TC isolation (2026-05-12):** F02–F06 each self-reset via back+re-enter at the start of the TC. Cascading state across TCs proved fragile on slower CI emulators — a flake in F03 would cascade through F04/F05. Trade-off: ~+10s per TC for deterministic isolation.
-
 ## 6. Permissions
+
+**Spec:** `tests/specs/03_nav/06_permissions.spec.js`
+
+**Scope summary:**
+- **Default state** (TC-P01) — all 3 entries "Not checked", no Open Settings.
+- **Grant Camera+Audio+Location+Storage** (TC-P02) — mixed grant path including a deny-then-recover; persistence on re-navigation.
+- **Alternative grant path** (TC-P03) — Camera "While using" twice, Location "Only this time", Storage auto-grant; persistence.
+- **Deny twice → permanent** (TC-P04) — Camera/Location both → "Permanently Denied", Storage still auto-grants; re-Request taps confirm no OS re-dialog.
+
 | Test ID | Description | Strategy | Pixel 8 | Pixel Tablet |
 | :--- | :--- | :--- | :---: | :---: |
 | **TC-P01** | Permissions page default state with all 3 entries "Not checked" + no "Open Settings" | Universal POM | ✅ | ✅ |
@@ -131,26 +167,32 @@ Each module's supported Android API range is an explicit contract. A new module 
 | **TC-P03** | Grant Camera (While using twice), Location (Only this time), Storage (auto-grant) — verify persistence | Alternative Grant + Persistence | ✅ | ✅ |
 | **TC-P04** | Deny Camera twice (→Denied→Permanently Denied), deny Location twice (→Denied→Permanently Denied), auto-grant Storage — verify persistence with Request taps confirming no OS re-dialogs | Deny-2x + Persistence | ✅ | ✅ |
 
-> **Native dialog handling:** Uses `resource-id` selectors from Android PermissionController (`permission_allow_foreground_only_button`, `permission_deny_button`, `permission_deny_and_dont_ask_again_button`). The 1st deny uses `permission_deny_button`; the 2nd deny (triggering "Permanently Denied") uses `permission_deny_and_dont_ask_again_button`. The POM selector uses `resourceIdMatches(".*permission_deny.*")` to match both variants.
-> **API-level fallback (CI compatibility):** Retained from the prior API-29 CI baseline. `acceptWhileUsing()` and `acceptOneTime()` try the API-30-specific button first (5s timeout — bumped from 2s after CI migration to API 34, where the back-to-back Camera Video → Audio dialog pair needs more time for dialog #1 dismiss + dialog #2 render on a slower emulator), then fall back to the generic `PermissionController:id/permission_allow_button` selector for pre-API-30 emulators.
-> **State management:** `beforeAll` calls `pm reset-permissions` to ensure clean "Not checked" state. Each individual test also resets before its own request to isolate side effects from prior test runs. `resetPermissions()` now force-stops the app before `am start -W` so reset reliably lands on Home rather than wherever the previous TC left the activity stack (without force-stop, `am start` brings the existing activity to foreground when the app is still running).
-> **Scroll-safe persistence checks:** In TC-P02/P03/P04, Camera and Location statuses are verified *before* `scrollDownToStorageInfo()`. On API 29, scrolling pushes offscreen elements entirely out of the accessibility tree (not just visually), causing `element wasn't found` errors. Only Storage (below the fold) is checked after the scroll.
-> **Note:** The three "Request" buttons share identical `content-desc` text (`"Request"`) and are differentiated via `.instance(0/1/2)` in order of appearance (Camera=0, Location=1, Storage=2).
-
 ## 7. Notifications
+
+**Spec:** `tests/specs/03_nav/07_notifications.spec.js` (requires API 33+; CI runs API 34)
+
+**Scope summary:**
+- **Accept** (TC-NT01) — grant + card "Notification permission granted" + exercise all 5 triggers.
+- **Deny** (TC-NT02) — deny + card "Permission denied — notifications may not appear" + exercise all 5 triggers.
+- **Permanent denial** (TC-NT03) — 2× deny with leave+return between; 3rd entry suppresses dialog; card reverts to "No notifications sent yet" + exercise all 5 triggers.
+
 | Test ID | Description | Strategy | Pixel 8 | Pixel Tablet |
 | :--- | :--- | :--- | :---: | :---: |
 | **TC-NT01** | Accept OS dialog → card "Notification permission granted" → exercise all 5 triggers (Instant, Schedule, Banner DISMISS + VIEW, Dialog LATER + OK, Snackbar VIEW) | Universal POM + Helper | ✅ | ✅ |
 | **TC-NT02** | Deny OS dialog → card "Permission denied — notifications may not appear" → exercise all 5 triggers | Universal POM + Helper | ✅ | ✅ |
 | **TC-NT03** | Deny dialog twice (with leave+return between, since Android 13+ re-prompts once after a single deny) → 3rd entry has no dialog (permanent denial) → card reverts to "No notifications sent yet" → exercise all 5 triggers | Sequential Persistence | ✅ | ✅ |
 
-> **API requirement:** Notifications module requires Android 13+ (API 33+) — `POST_NOTIFICATIONS` is an API-33 runtime permission. CI was migrated from API 29 → API 34 specifically to support this module; prior to migration the OS dialog never appeared and the entire flow was unreachable.
-> **`pm clear` reset:** The DemoApp tracks "have we asked for POST_NOTIFICATIONS?" in SharedPreferences. `pm reset-permissions` clears OS-level grants and user_set flags but leaves the app's pref intact, so the dialog stays suppressed across runs. `resetNotificationPermission()` uses `pm clear` to wipe app data fully (heavyweight; only the Notifications module needs this) + `am start -W` (with a 2.5s settle pause) to relaunch reliably on both phone and tablet. Side effect: `pm clear` also wipes login state → spec's `gotoNotifications` re-authenticates via `LoginPage.login()` before nav.
-> **Dialog a11y tree narrowing:** The in-app dialog (Show Dialog Notification → modal with OK/LATER) removes underlying page nodes from the accessibility tree while open (verified via UI dump). Card-status assertions for the dialog flow must happen *after* the dialog is dismissed — not while it's open. In-app banner and snackbar do NOT narrow the tree.
-> **Card-status truth:** OK changes the card to "Dialog action tapped!"; LATER and scrim dismissal leave the card at "In-app dialog shown!" (no separate "dismissed" status). LATER vs scrim are indistinguishable by card text — TC-NT01 covers LATER as the "close-without-action" path; scrim is intentionally not tested (no unique state).
-> **Pixel Tablet (emulator-5556, API 35) prerequisite:** Grant `ACCESS_FINE_LOCATION` / `ACCESS_COARSE_LOCATION` to `io.appium.settings` before any test run — its ForegroundService is declared with type=location and crashes on API 34+ without those perms, breaking Appium session init.
-
 ## 8. Tabs & Navigation
+
+**Spec:** `tests/specs/03_nav/08_tabs.spec.js`
+
+**Scope summary:**
+- **Default render** (TC-T01) — Back, title, 3 top tabs, Feed selected, Page 1 of 3 hint.
+- **Feed pager** (TC-T02) — swipe 1→2→3 with no overshoot; back-swipe preserves intra-tab state.
+- **Static tabs** (TC-T03) — Search tab body text.
+- **Nested bottom nav** (TC-T04) — Profile Home/Favorites/Settings toggle.
+- **State reset** (TC-T05/T06) — cross-tab hop and Back+re-enter both reset pager to Page 1.
+
 | Test ID | Description | Strategy | Pixel 8 | Pixel Tablet |
 | :--- | :--- | :--- | :---: | :---: |
 | **TC-T01** | Default load — Back, title, 3 top tabs visible, Feed selected, Page 1 of 3 hint | UI Assertion | ✅ | ✅ |
@@ -160,10 +202,14 @@ Each module's supported Android API range is an explicit contract. A new module 
 | **TC-T05** | Cross-tab reset — Feed→Page 2 → Search → Feed → pager resets to Page 1 | State Reset | ✅ | ✅ |
 | **TC-T06** | Back+re-enter reset — Feed→Page 3 → Back → re-enter via drawer → pager resets to Page 1 | State Reset | ✅ | ✅ |
 
-> **Cascade flow:** Single `beforeAll` entry; TCs cascade in-screen (T01→T05) without exiting. Only TC-T06 deliberately leaves the page to test the back+re-enter reset path. TC-T05 explicitly taps Feed at start because TC-T04 leaves the screen on Profile/Settings.
-> **Pager swipe geometry:** Horizontal swipe band at `y = height * 0.55` works on both phone and tablet — well below the top tab strip and above the bottom-nav region (Profile tab). No device-specific branch needed.
-
 ## 9. Camera
+
+**Spec:** `tests/specs/03_nav/09_camera.spec.js` (requires API 30+)
+
+**Scope summary:**
+- **Granted Path** (TC-CM01–CM04) — grant Camera + Audio → live preview UI; shutter capture + "Photo saved" toast; header Back returns to live; flip-camera smoke.
+- **Denied Path** (TC-CM05–CM07) — single deny → denied screen + Open Settings; 2× deny → permanent denial persists; Open Settings deep-links to `com.android.settings`.
+
 | Test ID | Description | Strategy | Pixel 8 | Pixel Tablet |
 | :--- | :--- | :--- | :---: | :---: |
 | **TC-CM01** | Grant Camera + Audio → live preview header, shutter, flip visible | Permission Flow + UI Assertion | ✅ | ✅ |
@@ -174,15 +220,13 @@ Each module's supported Android API range is an explicit contract. A new module 
 | **TC-CM06** | Deny twice with leave+return between → 3rd entry has no dialog (permanent denial) → denied state persists | Sequential Persistence | ✅ | ✅ |
 | **TC-CM07** | Tap "Open Settings" from denied state → Android Settings (`com.android.settings`) is foreground app | Intent Verification | ✅ | ✅ |
 
-> **Two-reset model:** Spec splits into Granted Path (CM01–CM04, one `pm clear` + one grant, cascade) and Denied Path (CM05–CM07, one `pm clear` + deny inline). Six per-test resets would burn ~2 min of overhead; this version completes in ~1.6 min.
-> **`pm clear` reset:** Same rationale as Notifications — the DemoApp tracks the "asked Camera?" flag in SharedPreferences, so `pm reset-permissions` alone leaves the dialog suppressed across runs. `pm clear` wipes the flag + login state; spec re-authenticates via `LoginPage.login()`.
-> **Camera screen NAF widgets:** Shutter (View), flip (Button), and the captured-state buttons are NAF=true with no `content-desc` / `resource-id` set at all. Selected by **clickable-instance order** (`UiSelector().clickable(true).instance(N)`): index 0 = header Back, 1 = shutter/back-arrow (state-dependent), 2 = flip. This is the most stable selector handle without dropping to coordinate taps.
-> **Header Back arrow is context-aware:** In the captured-photo state it returns to live preview (intra-screen). In the live state it exits the Camera screen entirely. TC-CM03 exercises the captured→live transition. The bottom in-screen left button at `[160,2190][286,2316]` is likely retake/delete and is not part of our coverage.
-> **Flip-camera tutorial overlay (emulator only):** First flip-to-front-camera on the Android Studio emulator injects an "Entering camera mode" tutorial modal. NOT a DemoApp UI element; on real devices it never appears. `CameraPage.dismissEmulatorTutorialIfPresent()` ticks "Don't remind again" and dismisses, gating the whole spec behind one no-op call on real devices.
-> **Open Settings verification:** Uses `driver.getCurrentPackage()` (UiAutomator2 native) instead of `mobile: shell dumpsys` — the latter returns truncated output via Appium's shell channel.
-> **CI render timing tuning:** Audio-dialog wait extended to 10s (was 5s) and `waitForPageLoad` requires both shutter and flip buttons to be visible before returning, not just the screen title. The Audio dialog appears slowest on the GHA API-34 emulator (5-10s after Camera grant); the flip button lands in the a11y tree a moment after the shutter on the same render path. Without these guards CI run 25734329420 raced and failed TC-CM01.
-
 ## 10. Location
+
+**Spec:** `tests/specs/03_nav/10_location.spec.js` (Pixel Tablet skipped — emulator-5556 GPS never emits fixes)
+
+**Scope summary:**
+- **Granted Path** (TC-LO01–LO05) — OS dialog → "While using" grant → idle granted screen → Start Tracking + first history entry → 5 Start/Stop cycles accumulate ≥6 LIFO entries → re-entry persists permission but resets history.
+- **Denied Path** (TC-LO06–LO08) — single deny → denied screen + Open Settings; Open Settings deep-links; 2× deny → permanent denial.
 
 | Test ID | Description | Strategy | Pixel 8 | Pixel Tablet |
 | :--- | :--- | :--- | :---: | :---: |
@@ -195,16 +239,14 @@ Each module's supported Android API range is an explicit contract. A new module 
 | **TC-LO07** | Tap Open Settings → `getCurrentPackage()` reports `com.android.settings`; back to app → denied state retained | Intent Verification + Return State | ✅ | ⏭ Skipped |
 | **TC-LO08** | Deny twice with leave+return between → 3rd entry has no dialog (permanent denial); denied state persists | Sequential Persistence | ✅ | ⏭ Skipped |
 
-> **Pixel Tablet skip:** `width > 1200` in each describe's `beforeAll` invokes `test.skip` with a verbose reason. Verified manually that on emulator-5556 with OS-level "Allow only while using the app" + "Use precise location" set, the Location screen renders only the centered loading spinner — no Current Location card appears within 60s. Issue is the AVD's underlying location service, not Appium or the DemoApp.
-> **Two-reset model:** Spec splits into Granted Path (LO01–LO05, one `pm clear` + grant once, cascade) and Denied Path (LO06–LO08, one `pm clear` + deny inline). Mirrors Camera's pattern.
-> **`pm clear` reset:** Same rationale as Camera / Notifications — the DemoApp tracks the "asked Location?" flag in SharedPreferences. Wipes login; spec re-authenticates via `LoginPage.login()`.
-> **History entry trigger:** Each Start Tracking tap inserts **exactly one** history entry provided GPS-fix dwell ≥ ~3s (`LocationPage.startDwellMs = 3500`). Refresh is a confirmed no-op on Android (does not modify Current Location or History). `cycleStartStop()` is verify-and-retry: it compares the newest entry's key before vs after each cycle and retries up to 3 times if the fix didn't land — necessary because the emulator GPS mock occasionally fails to return a fix within the dwell on cold sessions.
-> **History display vs storage:** Entries are appended at the **top** (LIFO). The history list is a Flutter `ListView.builder`-style virtualized list — only ~5 entries render at a time on Pixel 8; older entries require scrolling. `collectAllHistoryEntries()` scroll-and-dedupes across the full list. No eviction was observed at ≤ 10 entries.
-> **Screen-session scoping:** Exiting Location wipes the in-memory history. On re-entry the History section is not rendered until tracking is restarted; the first fresh Start adds exactly 1 entry. This is real app behavior, asserted by TC-LO05.
-> **Nav drawer pre-swipe:** `gotoLocationFresh()` issues one explicit downward swipe inside the drawer before `navigateTo` — Location is the last TEST SCREENS item and sits at the drawer's bottom edge on smaller form factors. `NavMenuPage.scrollToItem` only scrolls when `isDisplayed=false`, so an item visible-but-clipped passes the gate and gets a partial-hit tap. The pre-swipe centres the target. Same drawer-column math as `NavMenuPage.scrollToItem`.
-> **Open Settings verification:** Uses `driver.getCurrentPackage()`, identical to Camera. After return-from-Settings, TC-LO07 re-asserts the denied state to catch regressions where the deep-link incorrectly exits the app.
-
 ## 11. Dark Mode (cross-cutting smoke)
+
+**Spec:** `tests/specs/03_nav/11_dark_mode.spec.js`. Verifies that the drawer Dark Mode toggle propagates across every previously-tested module.
+
+**Scope summary:**
+- **Baseline + toggle ON** (TC-DK01) — capture light AppBar 3-spot baseline, toggle ON, assert Home brightness drops ≥80.
+- **Cross-cutting walk** (TC-DK02) — visit Catalog Landing / Shop All / 4 Categories / Cart / About / Gestures / WebView / Dialogs / Form / Permissions / Notifications / Tabs / Camera / Location; each samples as dark.
+- **Toggle OFF restoration** (TC-DK03) — toggle OFF, Home returns within ±30 of original baseline.
 
 | Test ID | Description | Strategy | Pixel 8 | Pixel Tablet |
 | :--- | :--- | :--- | :---: | :---: |
@@ -212,106 +254,84 @@ Each module's supported Android API range is an explicit contract. A new module 
 | **TC-DK02** | Walk through every previously-tested page and verify each samples as dark (avg brightness < baseline − 80). Order: Catalog Landing → Shop All → Casual → Evening → Party → Boho → Cart → About (scroll → in-page Dark Mode Switch reports ON, synced with drawer) → Gestures → WebView (navigate-only, sample skipped) → Dialogs → Form → Permissions → Notifications → Tabs → Camera (deny dialog) → Location (deny dialog, Pixel 8 only). | Cross-Cutting Visual Smoke | ✅ | ✅ (Location step skipped) |
 | **TC-DK03** | Toggle OFF via drawer → `checked=false`. Dismiss → Home avg brightness within ±30 of original baseline. | Restoration | ✅ | ✅ |
 
-> **Sample geometry:** 3 points across the AppBar at fixed `Y = 0.07h` and `X = 0.6w / 0.75w / 0.9w` — right of any centered page title and, on Home, left of the cart icon. AppBar background is uniformly theme-aware on every screen; page-body sampling was abandoned because Catalog Landing's product imagery has dark colors even in light mode (initial baseline read 94 instead of the AppBar's 247).
-> **WebView sampling skipped:** The inner WebView content is web-themed, not app-themed. We still navigate in/out to confirm no crash under dark theme.
-> **About in-page toggle sync:** The About page exposes its own Dark Mode Switch (`AboutPage.darkModeSwitch`). Manually verified that flipping the drawer toggle also flips the in-page Switch; TC-DK02 asserts this state-sync after a `scrollToBottom()`.
-> **Location step on tablet:** Skipped per the 10/Location module's tablet limitation. The rest of DK02 runs identically on both devices.
-> **Single drawer trip per TC:** The original `beforeAll` "normalize to OFF" step was dropped because DK03 already leaves Dark Mode OFF at the end of every clean run. DK01 enters at default OFF; if a prior run was interrupted mid-walk and left dark ON, the first `expect(checked === false)` in DK01 fails clearly — surfacing the leak rather than silently masking it.
-> **Location pre-swipe:** Mirrored from `10_location.spec.js` — one drawer-column swipe before tapping Location so the tap target is centred instead of clipped at the drawer's bottom edge.
-> **Retry-tolerant returnHome:** `driver.back()` is called up to 3 times waiting for Home's `shopAllBtn`. Some module screens (Form's auto-focused EditText) raise the soft keyboard and the first back dismisses the keyboard rather than exiting the page; the retry absorbs this without per-module branching.
-
 ## 12. Product Detail + Add to Cart
 
 **Spec:** `tests/specs/04_products/01_product_detail_add.spec.js`
-**Flow:** Shop All → Detail (color-variant add ×2) → Casual Category → Detail (add) → Evening Category → direct add. Cart cascade ends with 4 lines.
+**Flow:** Shop All → Detail → 2 color variants → Casual → Detail (add) → Evening → direct-add. Cart ends with 4 lines (pre-Search).
 
-**Color → cart line model (verified from `dumps/cart_with_items.xml`):**
-- Different color on same product → new cart line (variant model).
-- Same color on same product tapped again → qty bump on existing line.
-- Cart line content-desc has NO color info — only `name\n$total\nqty`. Two color variants of one product produce two identical-looking lines in the a11y tree, distinguishable only by positional instance.
-
-**Add-to-cart snackbar (verified from `dumps/detail_add_toast.xml`):**
-- `description="<Product> added to cart"` with embedded `VIEW CART` action button @ bottom edge.
-- Detail screen app bar has no cart icon — badge assertion requires navigating back to Shop All / Category grid where the cart icon sits.
+**Scope summary:**
+- **Detail render** (TC-PD01) — image, title, price, 3 color swatches, qty stepper, Add to Cart all present after random pick.
+- **Variant cart model** (TC-PD02) — different colors of one product become separate cart lines; cart=2, badge=2.
+- **Badge persistence** (TC-PD03/PD05) — cart badge survives drawer nav between Shop All / Casual / Evening grids.
+- **Add via Detail** (TC-PD04) — Add to Cart snackbar fires, badge increments to 3.
+- **Add via card icon** (TC-PD06) — direct-add from Evening grid card (no Detail visit), badge increments to 4.
 
 | Test ID | Description | Strategy | Pixel 8 | Pixel Tablet |
 | :--- | :--- | :--- | :---: | :---: |
-| **TC-PD01** | From Catalog Landing → Shop All → tap random product card → Detail renders (image, title, price, description, 3 color swatches, qty stepper, Add to Cart) | E2E Flow | ✅ | ✅ |
-| **TC-PD02** | Color-variant cascade — tap color swatch by instance(0) → Add to Cart → snackbar; tap swatch by instance(1) on same product → Add to Cart → snackbar. Assert Cart now has 2 lines (one per color variant) and badge=2 | UI Interaction + Variant Side-effect | ✅ | ✅ |
-| **TC-PD03** | Back → assert cart badge=2 on Shop All; Nav Menu → Home → tap Casual category → tap random product card → Detail renders (navigation-only, no add) | E2E Flow | ✅ | ✅ |
-| **TC-PD04** | Tap Add to Cart on the Casual product Detail → snackbar `"<Product> added to cart"` with VIEW CART action; navigate Back → cart badge=3 | UI + Side-effect | ✅ | ✅ |
-| **TC-PD05** | Back → Evening category landing renders with product grid (navigation-only, no add) | E2E Flow | ✅ | ✅ |
-| **TC-PD06** | Add a product directly via the card's NAF add-to-cart icon (no Detail visit) → snackbar at bottom edge → cart badge=4 | UI + Side-effect | ✅ | ✅ |
-
-> **Cross-device:** Pixel Tablet runs in **forced portrait** for this spec — natural landscape (2560×1600) makes product cards taller than the viewport. Lock is applied AFTER login via `mobile: shell` + `settings put system user_rotation 1`. The W3C `driver.setOrientation()` is deprecated and silently no-ops on UIA2; `mobile: setOrientation` is not registered. See `feedback_uia2_orientation_api.md` in memory.
+| **TC-PD01** | Shop All → random product → Detail renders (image, title, price, 3 swatches, qty stepper, Add to Cart) | E2E Flow | ✅ | ✅ |
+| **TC-PD02** | Two color variants of same product → 2 distinct cart lines + badge=2 | Variant Side-effect | ✅ | ✅ |
+| **TC-PD03** | Back to Shop All → badge=2 persists; drawer → Home → Casual → random product Detail | E2E Flow | ✅ | ✅ |
+| **TC-PD04** | Add Casual product → snackbar → badge=3 | UI + Side-effect | ✅ | ✅ |
+| **TC-PD05** | Back → Evening grid renders | E2E Flow | ✅ | ✅ |
+| **TC-PD06** | Direct-add from Evening card icon (no Detail visit) → badge=4 | UI + Side-effect | ✅ | ✅ |
 
 ## 13. Search
 
-**Spec:** lives in `tests/specs/04_products/01_product_detail_add.spec.js` (folded with PD).
-**Scope:** Search bar is NOT on Catalog Landing — it lives on the Shop All ("All Dresses") grid and each Category grid (Casual / Evening / Party / Boho). TC-SR01 exercises **Party** with keyword `"Cocktail"` (3 matches: Lace, Mint, Navy) and adds all 3; TC-SR02 exercises **Boho** with `"shorts"` for an off-catalog clothing-domain negative.
+**Spec:** folded into `04_products/01_product_detail_add.spec.js`. Search bar lives on Shop All and each Category grid (not on Catalog Landing).
+
+**Scope summary:**
+- **Multi-add from results** (TC-SR01) — Party + "Cocktail" returns 3 matches; add all 3 via direct-add icon; badge 4 → 7.
+- **Empty result** (TC-SR02) — Boho + "shorts" returns zero cards; badge unchanged at 7.
 
 | Test ID | Description | Strategy | Pixel 8 | Pixel Tablet |
 | :--- | :--- | :--- | :---: | :---: |
-| **TC-SR01** | Open Party grid → search `"Cocktail"` → counter shows 3 matches → add all 3 distinct cocktail products via direct-add icon (bottom-up scroll pattern); cart badge becomes 7 | Functional + Multi-Add | ✅ | ✅ |
-| **TC-SR02** | Open Boho grid → search `"shorts"` → zero matching cards, badge unchanged at 7 | Negative (cross-grid) | ✅ | ✅ |
-
-> **Bottom-up scroll pattern (SR01):** scroll the grid DOWN once so the bottom-most match is in view, then iterate visible names in REVERSE order. Between iterations, scroll UP to reveal earlier matches. The inter-iteration scroll doubles as the snackbar-dismiss delay — Material Snackbar with `VIEW CART` action persists ≥5s on rotated tablet, exceeding `waitForSnackbarDismissed`'s default budget. Phone case (all 3 fit in one viewport) degenerates cleanly to one iteration. See `feedback_bottom_up_scroll_pattern.md`.
+| **TC-SR01** | Party → search "Cocktail" → 3 matches → add all 3 → badge=7 | Functional + Multi-Add | ✅ | ✅ |
+| **TC-SR02** | Boho → search "shorts" → empty grid, badge unchanged | Negative | ✅ | ✅ |
 
 ## 14. Shopping Cart
 
 **Spec:** `tests/specs/04_products/02_cart.spec.js`
-**Cascade entry:** chains off §12+§13 (7-line cart end-state). `beforeAll` taps the grid cart icon — no in-spec rebuild. The retry-replay path (`testInfo.retry > 0`) has a `pm clear` + relogin + full PD cascade + cart-icon-tap fallback for CI safety.
+**Cascade entry:** chains off §12+§13 7-line cart by tapping the grid cart icon.
 
-**Cart line structure (verified from `test-results/cart_dump.xml`, 2026-05-18):**
-- Each line = ImageView with `description="<Product>\n$<line total>\n<qty>"`. Qty 1 ⇒ qty 1; qty N ⇒ price ×N and qty N in the desc.
-- Per line, 3 Button children in DOM order [Minus, Plus, Delete]:
-  - **Minus** — `enabled=false, clickable=false` at qty=1 (greyed); becomes NAF `clickable=true` at qty≥2.
-  - **Plus** — NAF Button, always `clickable=true`.
-  - **Delete** — NAF Button, always `clickable=true`.
-- **Selector ambiguity:** color variants of the same product produce identical line content-desc (e.g. two "Casual Sundress\n$49.99\n1" lines from PD02). Buttons therefore can't be addressed via UiSelector `description(...).childSelector(...)` reliably. `CartPage._lineButtons(index)` resolves via WebDriverIO subtree query `lines[index].$$('android.widget.Button')` — DOM order is stable and works on phone portrait + tablet portrait without per-device coordinate offsets.
-
-**Cart-screen scroll:**
-- Cart body wraps in `android.widget.ScrollView` (`scrollable=true`) when content overflows viewport. Bottom bar (Total + Proceed to Checkout) sits OUTSIDE the scrollview — always visible.
-- Compose virtualises off-screen line items: on Pixel 8 portrait, only ~6 of 7 lines are in the a11y tree at scroll-top. `CartPage.collectAllLines()` walks the scrollview in viewport-fraction swipes + stitches snapshots into a single ordered list, so Σ(line.total) can be verified against the bottom-bar cart Total.
-- On Pixel Tablet portrait the cart fits in one viewport — no ScrollView in `scrollable(true)` state — and the walk gracefully no-ops.
-
-**Bottom bar:**
-- Label `description("Total:")`, value View with `description` starting `$` (sum of all line totals).
-- `description("Proceed to Checkout")` Button, clickable=true.
+**Scope summary:**
+- **Entry + data integrity** (TC-S01) — 7 lines load, line totals sum to bottom-bar cart Total, Proceed to Checkout enabled.
+- **Quantity stepper** (TC-S02/S03) — Plus drives qty 1→5, Minus drives back to 1, line total + cart Total stay in sync per tap, Minus is greyed at qty=1.
+- **Delete + math** (TC-S04) — deleting a line drops the count by 1 and decrements the cart Total by exactly that line's total.
+- **Empty state** (TC-S05) — deleting every line surfaces "Your cart is empty" + Continue Shopping.
 
 | Test ID | Description | Strategy | Pixel 8 | Pixel Tablet |
 | :--- | :--- | :--- | :---: | :---: |
-| **TC-S01** | Land on Cart via grid icon → `collectAllLines()` walks ScrollView; assert 7 lines well-formed (name truthy, total>0, qty≥1); `Total:` value = Σ line totals (in-code reduce); Proceed to Checkout clickable | Scroll-Walk + Data Integrity | ✅ | ✅ |
-| **TC-S02** | On line 0 (a PD02 variant, qty=1) tap Plus until qty=5 → per-tap: line content-desc reflects new qty + `total = unitPrice × qty`; `collectAllLines()` re-walked → Σ line totals == bottom-bar cart Total | UI Interaction + In-Code Sum Verify (capped N=5) | ✅ | ✅ |
-| **TC-S03** | Tap Minus back down to qty=1 → same Σ-totals verification per tap; at qty=1 the Minus button's `clickable=false` AND `enabled=false` (UI-lock contract) | UI Interaction + Disabled-state Assertion | ✅ | ✅ |
-| **TC-S04** | Tap Delete on line 0 → line count -1; cart Total = before − deletedLine.total; afterSum (re-walked) == cart Total | UI Interaction + Math Verify | ✅ | ✅ |
-| **TC-S05** | Loop tapDelete(0) until line count = 0 → "Your cart is empty" + Continue Shopping visible | Negative / Empty State | ✅ | ✅ |
+| **TC-S01** | 7 lines visible, each well-formed; `Total:` = Σ line totals; Proceed to Checkout clickable | Data Integrity | ✅ | ✅ |
+| **TC-S02** | Plus on line 0 qty 1→5; per tap: line total = unitPrice × qty AND Σ line totals = cart Total | UI Interaction + Sum Verify | ✅ | ✅ |
+| **TC-S03** | Minus on line 0 back to qty=1; same Σ verification; at qty=1 Minus is `clickable=false, enabled=false` | UI Interaction + Disabled-state | ✅ | ✅ |
+| **TC-S04** | Delete line 0 → count -1; cart Total = before − deletedLine.total | UI Interaction + Math Verify | ✅ | ✅ |
+| **TC-S05** | Loop delete until empty → "Your cart is empty" + Continue Shopping | Negative / Empty State | ✅ | ✅ |
 
 ## 15. Checkout (planned)
 
 **Spec:** `tests/specs/04_products/03_checkout.spec.js`
-**Flow:** Cart → Shipping Info ("To Payment") → Review Order ("Place Order") → Thank You ("Continue Shopping"). No Payment step. No order number on Thank You. Fields accept any non-empty value (no format validation observed). Test data: `tests/data/checkout-scenarios.json`.
+**Flow:** Cart → Shipping Info ("To Payment") → Review Order ("Place Order") → Thank You ("Continue Shopping"). No Payment step. Test data: `tests/data/checkout-scenarios.json`.
 
-**Selectors (verified from `dumps/shipping_info.xml`, `dumps/shipping_empty_submit.xml`, `dumps/review_order.xml`, `dumps/thank_you.xml`):**
-- Shipping Info form: 7 NAF `EditText` fields, no hint/resource-id. Positional `instance(N)` is the only selector handle (0=Full Name, 1=Address1, 2=Address2 optional, 3=City, 4=State, 5=Zip, 6=Country). Same a11y model as Form Validation — port `typeIntoField` with `hideKeyboard()` + `UiScrollable.scrollIntoView`.
-- Validation: every required field gets a child View `description="This field is required"` after empty submit; Address 2 stays clean.
-- Review Order: Shipping Address card content-desc joins fields with `\n` — 4 lines without Address 2, **5 lines with Address 2** (`Full Name\nAddress 1\nAddress 2\nCity, State Zip\nCountry`).
-- Review line item format: `description="<Product>\nQty: <N>\n$<line subtotal>"` — same data semantic as Cart (subtotal, not unit price) but different field order, so the POM needs two parsers (one for `<Product>\n$<total>\n<qty>` on Cart, one for `<Product>\nQty: <N>\n$<subtotal>` on Review).
-- Review scrollability: when total content fits viewport, no scroll wrapper. When content overflows (verified at 6 line items), entire screen wraps in `android.widget.ScrollView` with `scrollable=true` and **Place Order falls below the fold**. POM must use `UiScrollable.scrollIntoView` for `description("Place Order")` on long carts.
-- Thank You: `description("Thank You!")` + body `description="Your order has been placed successfully.\nYou will receive a confirmation shortly."` + `description("Continue Shopping")` button. No app bar, no Back — Continue Shopping is the only forward path.
+**Scope summary:**
+- **Empty submit** (TC-K01) — required-field errors on 6 of 7 fields (Address 2 optional).
+- **Happy path** (TC-K02) — fill `valid[0]` fixture → Review Order matches Cart totals → Place Order → Thank You.
+- **Continue Shopping** (TC-K03) — returns to Catalog Landing with cart badge=0.
+- **State preservation** (TC-K04) — Back from Review re-renders Shipping Info with all 7 entered values preserved.
 
 | Test ID | Description | Strategy | Status |
 | :--- | :--- | :--- | :---: |
-| **TC-K01** | Cart with ≥ 1 item → Checkout → Shipping Info renders (7 fields) → tap To Payment with all fields empty → assert exactly 6 `"This field is required"` errors (one per required field; Address 2 has none); stay on Shipping | Negative | ⏳ |
-| **TC-K02** | Fill all 7 Shipping fields (`valid[0]` fixture including Address 2 = "Unit 04-12") → To Payment → Review Order renders with **5-line Shipping Address card** (proves Address 2 is rendered as its own line), Order Summary line items match Cart, Total matches Cart Total → Place Order → Thank You screen with `"Thank You!"` title + success body + Continue Shopping button | E2E Flow + Optional Field Surface | ⏳ |
-| **TC-K03** | Continue Shopping from Thank You → returns to Catalog Landing → cart badge=0 | E2E Flow | ⏳ |
-| **TC-K04** | Fill all 7 Shipping fields → To Payment (Review renders) → tap Back → Shipping Info re-appears with **all 7 entered values preserved** verbatim (incl. Address 2) | State Preservation | ⏳ |
+| **TC-K01** | Cart → Checkout → empty To Payment → 6 required-field errors; stay on Shipping | Negative | ⏳ |
+| **TC-K02** | Fill `valid[0]` → To Payment → Review (5-line Shipping Address card, totals match Cart) → Place Order → Thank You | E2E Flow | ⏳ |
+| **TC-K03** | Continue Shopping → Catalog Landing + cart badge=0 | E2E Flow | ⏳ |
+| **TC-K04** | Fill 7 fields → To Payment → Back → Shipping Info preserves all 7 values verbatim | State Preservation | ⏳ |
 
 ## 16. End-to-End Regression (planned)
 
 **Spec:** `tests/specs/05_regression/01_e2e.spec.js`
-**Reset:** `pm clear` + `am force-stop` + `am start -W` (matches Camera/Location/Notifications pattern). CI-safe — proven in commit `b383803` (run 25852952799).
+
+**Scope summary:**
+- **Full serial journey** (TC-E01) — fresh `pm clear` → login → catalog → product → add → cart → checkout → place order → thank you → continue shopping → assert badge=0.
 
 | Test ID | Description | Strategy | Status |
 | :--- | :--- | :--- | :---: |
-| **TC-E01** | Full serial single-product journey: `pm clear` → relaunch → login → Catalog Landing → product detail → add to cart → open Cart → Checkout → fill Shipping (standard fixture) → To Payment → Review Order → Place Order → Thank You → Continue Shopping → assert Catalog Landing + badge=0 | Full E2E Serial | ⏳ |
+| **TC-E01** | Full serial single-product journey, end-to-end from cold launch to badge=0 | Full E2E Serial | ⏳ |
