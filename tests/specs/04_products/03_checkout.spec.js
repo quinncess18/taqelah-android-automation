@@ -91,29 +91,69 @@ test.describe('Products Module — Checkout (§15)', () => {
       }
     }
 
-    // Probe state. The expected chained-from-§14 entry is the empty cart
-    // screen with Continue Shopping visible.
-    const onEmptyCart = await cartPage.isVisible(cartPage.continueShoppingBtn);
-    if (onEmptyCart) {
-      const continueBtn = await driver.$(cartPage.continueShoppingBtn);
-      await continueBtn.click();
-      await driver.pause(1500);
+    // Choose itemCount once for both attempts (consistent across retry).
+    const itemCount = 2 + Math.floor(Math.random() * 2); // 2 or 3
+
+    // First attempt: chained-from-§14 path (Continue Shopping → Boho with
+    // "shorts" → clearSearch → add). If anything in here fails (cold-render
+    // race on CI etc.), the catch falls back to a full pm-clear + relogin
+    // + navigate-into-Boho-via-Landing recovery — same parity as the
+    // retry-replay pattern in §12/§14 (per feedback-mid-cascade-retry).
+    try {
+      console.log('[CK-seed] attempt 1: chained path');
+      const onEmptyCart = await cartPage.isVisible(cartPage.continueShoppingBtn);
+      if (onEmptyCart) {
+        console.log('[CK-seed] tapping Continue Shopping from empty cart');
+        const continueBtn = await driver.$(cartPage.continueShoppingBtn);
+        await continueBtn.click();
+        await driver.pause(1500);
+      }
+      console.log('[CK-seed] waiting for Boho grid (post-Continue-Shopping)');
+      await gridPage.waitForPageLoad();
+      console.log('[CK-seed] clearing prior "shorts" search');
+      await gridPage.clearSearch();
+      await seedCartFromCurrentGrid(driver, itemCount);
+    } catch (e) {
+      console.log(`[CK-seed] chained path failed: ${e?.message || e}`);
+      console.log('[CK-seed] recovering via pm clear + relogin + Boho-from-Landing');
+      await fullResetAndLogin(driver);
+      console.log('[CK-seed] recovery: selecting Boho category');
+      await landingPage.selectCategory('Boho');
+      await gridPage.waitForPageLoad();
+      await seedCartFromCurrentGrid(driver, itemCount);
     }
 
-    // After Continue Shopping we're back on the Boho grid with "shorts"
-    // still in the search bar (SR02 leftover). Clear the search in place —
-    // items reappear, no navigation needed.
-    await gridPage.waitForPageLoad();
-    console.log(`[checkout/beforeAll] adding from "Boho" (clearing prior search)`);
-    await gridPage.clearSearch();
+    // Open Cart and snapshot entry state.
+    console.log('[CK-seed] opening Cart');
+    const cartIcon = await driver.$(gridPage.cartBtn);
+    await cartIcon.click();
+    await cartPage.waitForPageLoad();
 
-    // Add 2 or 3 DISTINCT random items via the Detail-page add path
-    // (PD04 pattern). The grid-card direct-add icon was vulnerable to
-    // Material snackbar overlay collisions on bottom-of-grid cards (e.g.
-    // "Emerald Wrap Dress" consistently failed two runs in a row because
-    // its add-button sat where the snackbar's VIEW CART action covered it).
-    // Detail-page add has no overlay hazard and PD04 proves the pattern.
-    const itemCount = 2 + Math.floor(Math.random() * 2); // 2 or 3
+    entryLines = await cartPage.collectAllLines();
+    entryLineCount = entryLines.length;
+    entryCartTotal = await cartPage.getCartTotal();
+
+    // Pre-condition assertions — fail fast if the cart isn't in the shape
+    // K01 expects (≥ 1 line, math consistent).
+    if (entryLineCount < 1) {
+      throw new Error(`[CK-seed] expected ≥1 cart line, got ${entryLineCount}`);
+    }
+    const sumLineTotals = entryLines.reduce((s, l) => s + l.total, 0);
+    if (Math.abs(entryCartTotal - sumLineTotals) > 0.01) {
+      throw new Error(`[CK-seed] cart total ${entryCartTotal} ≠ Σ line totals ${sumLineTotals}`);
+    }
+    console.log(`[CK-seed] cart ready: ${entryLineCount} lines, total $${entryCartTotal.toFixed(2)}`);
+  });
+
+  // ─── seed-cart helpers (used by beforeAll + its recovery path) ───
+
+  /**
+   * Add N DISTINCT random items via the Detail-page add path (PD04 pattern).
+   * Assumes we're already on a grid screen with items visible. The grid-card
+   * direct-add icon was vulnerable to Material snackbar overlay collisions
+   * on bottom-of-grid cards — Detail-page add has no overlay hazard.
+   */
+  async function seedCartFromCurrentGrid(driver, itemCount) {
     const pickedNames = [];
     const seen = new Set();
     for (let i = 0; i < itemCount; i++) {
@@ -126,8 +166,10 @@ test.describe('Products Module — Checkout (§15)', () => {
       seen.add(pick.name);
 
       const expectedBadge = i + 1;
+      console.log(`[CK-seed] add ${i + 1}/${itemCount}: tap "${pick.name}"`);
       await pick.el.click();
       await detailPage.waitForPageLoad();
+      console.log(`[CK-seed] add ${i + 1}/${itemCount}: Detail ready, tapping Add to Cart`);
       await detailPage.addToCart();
       await detailPage.waitForSnackbarDismissed();
       await driver.back();
@@ -137,28 +179,36 @@ test.describe('Products Module — Checkout (§15)', () => {
       }, { timeout: 6000, interval: 300, timeoutMsg: `add of "${pick.name}" did not increment cart badge to ${expectedBadge}` });
       pickedNames.push(pick.name);
     }
-    console.log(`[checkout/beforeAll] added ${itemCount}: ${pickedNames.join(', ')}`);
+    console.log(`[CK-seed] added ${itemCount}: ${pickedNames.join(', ')}`);
+  }
 
-    // Open Cart and snapshot entry state.
-    const cartIcon = await driver.$(gridPage.cartBtn);
-    await cartIcon.click();
-    await cartPage.waitForPageLoad();
+  /**
+   * pm clear + relaunch + login + tablet portrait re-lock. Matches the
+   * same shape as §12/§14's fullResetAndLogin so the recovery path lands
+   * on Catalog Landing reliably.
+   */
+  async function fullResetAndLogin(driver) {
+    await driver.execute('mobile: shell', { command: 'pm', args: ['clear', loginPage.appPackage] });
+    await driver.pause(2500);
+    await driver.execute('mobile: shell', { command: 'am', args: ['start', '-W', '-n', `${loginPage.appPackage}/.MainActivity`] });
+    await driver.pause(1500);
+    try { await driver.updateSettings({ waitForIdleTimeout: 0 }); } catch {}
+    await loginPage.waitForPageLoad();
+    await loginPage.login(loginPage.defaultUser, loginPage.defaultPass);
+    await landingPage.waitForPageLoad();
 
-    entryLines = await cartPage.collectAllLines();
-    entryLineCount = entryLines.length;
-    entryCartTotal = await cartPage.getCartTotal();
-
-    // Pre-condition assertions — fail fast if the cart isn't in the shape
-    // K01 expects (≥ 1 line, math consistent).
-    if (entryLineCount < 1) {
-      throw new Error(`[checkout/beforeAll] expected ≥1 cart line, got ${entryLineCount}`);
+    const { width } = await driver.getWindowRect();
+    if (width > 1200) {
+      try {
+        await driver.execute('mobile: shell', { command: 'settings', args: ['put', 'system', 'accelerometer_rotation', '0'] });
+        await driver.execute('mobile: shell', { command: 'settings', args: ['put', 'system', 'user_rotation', '1'] });
+        await driver.pause(2500);
+        await landingPage.waitForPageLoad();
+      } catch (e) {
+        console.log(`[CK-seed/recovery] portrait lock failed: ${e?.message || e}`);
+      }
     }
-    const sumLineTotals = entryLines.reduce((s, l) => s + l.total, 0);
-    if (Math.abs(entryCartTotal - sumLineTotals) > 0.01) {
-      throw new Error(`[checkout/beforeAll] cart total ${entryCartTotal} ≠ Σ line totals ${sumLineTotals}`);
-    }
-    console.log(`[checkout/beforeAll] cart ready: ${entryLineCount} lines, total $${entryCartTotal.toFixed(2)}`);
-  });
+  }
 
   test('TC-K01: empty submit on Shipping Info shows 6 required-field errors, stays on Shipping', async ({ driver }) => {
     // Sanity: we should be on the cart screen with ≥1 line.
